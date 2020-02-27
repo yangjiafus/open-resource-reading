@@ -493,7 +493,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			// Tell the subclass to refresh the internal bean factory.
 			//1、Bean资源定位
 			//2、bean资源的载入
-			//3、解析资源为Beandefinition
+			//3、解析资源为BeanDefinition
 			//4、向DefaultListableBeanFactory注册BeanDefinition
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
@@ -507,7 +507,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				postProcessBeanFactory(beanFactory);
 
 				// Invoke factory processors registered as beans in the context.
-				//对@Configuration注解内部的配置有解析
+				// 执行有注册功能和没有注册功能的BeanFactoryPostProcessor；
+				// 有注册功能提供注解驱动，注册Bean定义BeanDefinition
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
@@ -671,7 +672,15 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * <p>Must be called before singleton instantiation.
 	 */
 	protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
-		//调用所有的BeanFactoryPostProcessors。这里会涉及到配置注解的后置处理器，来创建配置内容
+		//调用BeanFactoryPostProcessor,分为两类：
+		//1、执行具备注册功能的BeanFactoryPostProcessor，即是实现BeanDefinitionRegistryPostProcessor接口，
+		//又实现BeanFactoryPostProcessor接口。执行过程：
+		//	a、先执行Spring内部BeanDefinitionRegistryPostProcessor的PostProcessorBeanDefinitionRegistry
+		//	b、再执行实现PriorityOrdered接口的BeanDefinitionRegistryPostProcessor
+		//	c、再执行实现Ordered接口的BeanDefinitionRegistryPostProcessor
+		//	d、然后执行普通的BeanDefinitionRegistryPostProcessor
+		//	e、最后执行BeanFactoryPosyProcessor的postProcessorBeanFactory方法
+		//2、执行不具备注册功能的BeanFactoryPostProcessor
 		PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());
 
 		// Detect a LoadTimeWeaver and prepare for weaving, if found in the meantime
