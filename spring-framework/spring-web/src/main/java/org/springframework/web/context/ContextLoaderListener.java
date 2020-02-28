@@ -100,6 +100,25 @@ public class ContextLoaderListener extends ContextLoader implements ServletConte
 	 */
 	@Override
 	public void contextInitialized(ServletContextEvent event) {
+		/*
+		* ServletContext 初始化完毕后，执行该监听器；spring以此为契机，
+		* 创建根上下文(WebApplicationContext)，加载上下文体系，并在根上下文中载入IOC容器
+		*<p/>
+		*
+		* Spring web MVC 根上下文与ServletContext存在双向持有引用，ServletContext以属性
+		* Attribute(name = WebApplicationContext.ROOT)方式持有；而Spring web mvc根上下文
+		* 以Bean属性方式持有。
+		*<p/>
+		*
+		* 初始化spring web mvc的根上下文过程：
+		* 1、创建默认的根上下文WebApplicationContext对象；
+		* 2、与ServletContext建立引用关系
+		* 3、配置Bean定义的xml文件路径，或者没有，如注解驱动时便没有。
+		* 4、初始化环境ConfigurableEnvironment
+		* 5、执行自定义的实例化器
+		* 6、刷新跟上下文或者刷新IOC容器
+		* 7、ServletContext与根上下文以Attribute(name = WebApplicationContext.ROOT)方式建立引用关系
+		* */
 		initWebApplicationContext(event.getServletContext());
 	}
 

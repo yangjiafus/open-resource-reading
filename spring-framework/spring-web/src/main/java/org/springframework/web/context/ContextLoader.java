@@ -16,17 +16,8 @@
 
 package org.springframework.web.context;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
-import javax.servlet.ServletContext;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.beans.BeanUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextException;
@@ -41,6 +32,14 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
+
+import javax.servlet.ServletContext;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Performs the actual initialization work for the root application context.
@@ -258,6 +257,12 @@ public class ContextLoader {
 	 * @see #CONFIG_LOCATION_PARAM
 	 */
 	public WebApplicationContext initWebApplicationContext(ServletContext servletContext) {
+		//从ServletContext上下文中获取WebApplicationContext.ROOT的值，
+		//判断是否存在根上下文，如果存在则为异常。
+		/*
+		* 从这里可以看出Spring MVC创建的根上下文WebApplicationContext是以ServletContext属性方式
+		* 存储在Web容器（Servlet容器）中的。
+		* */
 		if (servletContext.getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE) != null) {
 			throw new IllegalStateException(
 					"Cannot initialize context because there is already a root application context present - " +
@@ -275,24 +280,31 @@ public class ContextLoader {
 			// Store context in local instance variable, to guarantee that
 			// it is available on ServletContext shutdown.
 			if (this.context == null) {
+				//创建Spring mvc的根上下文，默认是WebApplicationContext类
 				this.context = createWebApplicationContext(servletContext);
 			}
+			//如果当前根上下文是否是一个ConfigurableWebApplicationContext上下文
 			if (this.context instanceof ConfigurableWebApplicationContext) {
 				ConfigurableWebApplicationContext cwac = (ConfigurableWebApplicationContext) this.context;
 				if (!cwac.isActive()) {
 					// The context has not yet been refreshed -> provide services such as
 					// setting the parent context, setting the application context id, etc
 					if (cwac.getParent() == null) {
-						// The context instance was injected without an explicit parent ->
+						// The context instance was injected without an explicit（显式的） parent ->
 						// determine parent for root web application context, if any.
+						//如果这里是创建Spring MVC的根上下文是没有父上下文的
 						ApplicationContext parent = loadParentContext(servletContext);
 						cwac.setParent(parent);
 					}
+					//配置和刷新根上下文（初始化IOC容器）
 					configureAndRefreshWebApplicationContext(cwac, servletContext);
 				}
 			}
+			//向ServletContext注册 spring MVC根上下文，同时验证了spring mvc根上下文是以
+			//ServletContext的属性方式存在于web容器（Servlet容器）中。
 			servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, this.context);
 
+			//当前线程的类加载器与ContextLoader的类加载器是否同一个
 			ClassLoader ccl = Thread.currentThread().getContextClassLoader();
 			if (ccl == ContextLoader.class.getClassLoader()) {
 				currentContext = this.context;
@@ -354,6 +366,7 @@ public class ContextLoader {
 	 * @see org.springframework.web.context.support.XmlWebApplicationContext
 	 */
 	protected Class<?> determineContextClass(ServletContext servletContext) {
+		//可以通过在web.xml中配置指定根上下文的类型；不过默认是没有配置的
 		String contextClassName = servletContext.getInitParameter(CONTEXT_CLASS_PARAM);
 		if (contextClassName != null) {
 			try {
@@ -365,6 +378,7 @@ public class ContextLoader {
 			}
 		}
 		else {
+			//以WebApplicationContext为默认的根上下文类型
 			contextClassName = defaultStrategies.getProperty(WebApplicationContext.class.getName());
 			try {
 				return ClassUtils.forName(contextClassName, ContextLoader.class.getClassLoader());
@@ -377,6 +391,7 @@ public class ContextLoader {
 	}
 
 	protected void configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext wac, ServletContext sc) {
+		//初次构建的Spring mvc容器是没有id的
 		if (ObjectUtils.identityToString(wac).equals(wac.getId())) {
 			// The application context id is still set to its original default value
 			// -> assign a more useful id based on available information
@@ -390,8 +405,12 @@ public class ContextLoader {
 						ObjectUtils.getDisplayString(sc.getContextPath()));
 			}
 		}
-
+		//spring mvc 根上下文 与 ServletContext建立双向引用关系
+		//根上下文持有ServletContext的引用；而ServletContext的
+		//Attributes（name=WebApplicationContext.ROOT）持有根上下文的引用.
 		wac.setServletContext(sc);
+		//获取web.xml配置的contextConfigLocation参数，一般情况下是ApplicationContext.xml，
+		//定义Bean的xml配置；当然如果是注解驱动可以不配置。
 		String configLocationParam = sc.getInitParameter(CONFIG_LOCATION_PARAM);
 		if (configLocationParam != null) {
 			wac.setConfigLocation(configLocationParam);
@@ -404,8 +423,10 @@ public class ContextLoader {
 		if (env instanceof ConfigurableWebEnvironment) {
 			((ConfigurableWebEnvironment) env).initPropertySources(sc, null);
 		}
-
+		//根据在web.xml配置的 globalInitializerClasses和contextInitializerClasses 参数，
+		//创建实例化器，并依次执行实例化器
 		customizeContext(sc, wac);
+		//刷新上下文，刷新上下文具备的spring IOC容器
 		wac.refresh();
 	}
 
@@ -427,6 +448,7 @@ public class ContextLoader {
 	 * @see ApplicationContextInitializer#initialize(ConfigurableApplicationContext)
 	 */
 	protected void customizeContext(ServletContext sc, ConfigurableWebApplicationContext wac) {
+		//从ServletContext中得到在web.xml配置的 globalInitializerClasses和contextInitializerClasses 参数
 		List<Class<ApplicationContextInitializer<ConfigurableApplicationContext>>> initializerClasses =
 				determineContextInitializerClasses(sc);
 
@@ -440,11 +462,13 @@ public class ContextLoader {
 						"context loader: [%s]", initializerClass.getName(), initializerContextClass.getName(),
 						wac.getClass().getName()));
 			}
+			//将web.xml配置的实例化类的对象添加到实例化器缓存
 			this.contextInitializers.add(BeanUtils.instantiateClass(initializerClass));
 		}
 
 		AnnotationAwareOrderComparator.sort(this.contextInitializers);
 		for (ApplicationContextInitializer<ConfigurableApplicationContext> initializer : this.contextInitializers) {
+			//依次执行实例化器的实例化方法
 			initializer.initialize(wac);
 		}
 	}
@@ -461,13 +485,14 @@ public class ContextLoader {
 		List<Class<ApplicationContextInitializer<ConfigurableApplicationContext>>> classes =
 				new ArrayList<>();
 
+		//从ServletContext中得到全局实例化的类 globalInitializerClasses
 		String globalClassNames = servletContext.getInitParameter(GLOBAL_INITIALIZER_CLASSES_PARAM);
 		if (globalClassNames != null) {
 			for (String className : StringUtils.tokenizeToStringArray(globalClassNames, INIT_PARAM_DELIMITERS)) {
 				classes.add(loadInitializerClass(className));
 			}
 		}
-
+		//从ServletContext中得到上下文实例化类 contextInitializerClasses
 		String localClassNames = servletContext.getInitParameter(CONTEXT_INITIALIZER_CLASSES_PARAM);
 		if (localClassNames != null) {
 			for (String className : StringUtils.tokenizeToStringArray(localClassNames, INIT_PARAM_DELIMITERS)) {
