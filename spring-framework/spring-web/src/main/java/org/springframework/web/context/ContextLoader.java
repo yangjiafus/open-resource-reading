@@ -262,6 +262,7 @@ public class ContextLoader {
 		/*
 		* 从这里可以看出Spring MVC创建的根上下文WebApplicationContext是以ServletContext属性方式
 		* 存储在Web容器（Servlet容器）中的。
+		*
 		* */
 		if (servletContext.getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE) != null) {
 			throw new IllegalStateException(
@@ -280,7 +281,9 @@ public class ContextLoader {
 			// Store context in local instance variable, to guarantee that
 			// it is available on ServletContext shutdown.
 			if (this.context == null) {
-				//创建Spring mvc的根上下文，默认是WebApplicationContext类
+				//创建Spring mvc的根上下文，默认是XmlWebApplicationContext类；
+				//当然了，这里可以在Spring web中配置ContextLoader.properties配置其他具体上下文；
+				//也可以在web.xml中配置Servlet上下文ServletContext配置其他上下文。
 				this.context = createWebApplicationContext(servletContext);
 			}
 			//如果当前根上下文是否是一个ConfigurableWebApplicationContext上下文
@@ -378,7 +381,9 @@ public class ContextLoader {
 			}
 		}
 		else {
-			//以WebApplicationContext为默认的根上下文类型
+			//虽然Web.xml中没有配置根上下文的具体实现类，但是在spring web中是默认指定了的，
+			//在ContextLoader.properties文件中指定了默认的根上下文为 XmlWebApplicationContext，
+			//也是WebApplicationContext的实现
 			contextClassName = defaultStrategies.getProperty(WebApplicationContext.class.getName());
 			try {
 				return ClassUtils.forName(contextClassName, ContextLoader.class.getClassLoader());

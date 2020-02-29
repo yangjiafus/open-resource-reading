@@ -110,8 +110,10 @@ public class ContextLoaderListener extends ContextLoader implements ServletConte
 		* 以Bean属性方式持有。
 		*<p/>
 		*
-		* 初始化spring web mvc的根上下文过程：
-		* 1、创建默认的根上下文WebApplicationContext对象；
+		* 初始化spring web mvc的根上下文过程，是一个面向接口的创建上下文过程：
+		* 1、创建默认的根上下文xmlWebApplicationContext对象；
+		* (可以在spring web中配置ContextLoad.properties,也可以在web.xml中配置Servlet上下文配置其他上下文，
+		* 如：AnnotationConfigWebApplicationContext)
 		* 2、与ServletContext建立引用关系
 		* 3、配置Bean定义的xml文件路径，或者没有，如注解驱动时便没有。
 		* 4、初始化环境ConfigurableEnvironment
