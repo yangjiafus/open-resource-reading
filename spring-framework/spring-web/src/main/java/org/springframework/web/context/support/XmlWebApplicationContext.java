@@ -16,12 +16,12 @@
 
 package org.springframework.web.context.support;
 
-import java.io.IOException;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.xml.ResourceEntityResolver;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+
+import java.io.IOException;
 
 /**
  * {@link org.springframework.web.context.WebApplicationContext} implementation
@@ -61,6 +61,10 @@ import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
  */
 public class XmlWebApplicationContext extends AbstractRefreshableWebApplicationContext {
 
+	//以下常量是默认的Bean定义的xml配置，当然这些是可以被更改的，
+	//更改方式：
+	//1、通过继承的方式，重写getDefaultConfigLocations()方法；
+	//2、可以通过调用父类/超类的setConfigLocation的方法进行重新配置
 	/** Default config location for the root context */
 	public static final String DEFAULT_CONFIG_LOCATION = "/WEB-INF/applicationContext.xml";
 

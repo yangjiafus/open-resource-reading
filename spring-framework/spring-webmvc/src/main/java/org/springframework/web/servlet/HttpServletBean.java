@@ -16,22 +16,9 @@
 
 package org.springframework.web.servlet;
 
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Set;
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
-import org.springframework.beans.BeanWrapper;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.MutablePropertyValues;
-import org.springframework.beans.PropertyAccessorFactory;
-import org.springframework.beans.PropertyValue;
-import org.springframework.beans.PropertyValues;
+import org.springframework.beans.*;
 import org.springframework.context.EnvironmentAware;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
@@ -45,6 +32,13 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.support.ServletContextResourceLoader;
 import org.springframework.web.context.support.StandardServletEnvironment;
+
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Simple extension of {@link javax.servlet.http.HttpServlet} which treats
@@ -151,13 +145,20 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
 		}
 
 		// Set bean properties from init parameters.
+		//从ServletConfig中获取所有属性，并创建PropertyValue对象作为包装，
+		//最终放入 propertyValueList 缓存中。
 		PropertyValues pvs = new ServletConfigPropertyValues(getServletConfig(), this.requiredProperties);
 		if (!pvs.isEmpty()) {
 			try {
+				//将HttpServletBean包装成BeanWrapper
 				BeanWrapper bw = PropertyAccessorFactory.forBeanPropertyAccess(this);
+				//构建一个能从ServletContext读取资源的资源加载器
 				ResourceLoader resourceLoader = new ServletContextResourceLoader(getServletContext());
+				//为当前HTTPServletBean设置自定义的编辑器
 				bw.registerCustomEditor(Resource.class, new ResourceEditor(resourceLoader, getEnvironment()));
+				//空初始化 BeanWrapper
 				initBeanWrapper(bw);
+				//将从ServletConfig中解析属性的来的PropertyValue缓存设置到当前HTTPServletBean中
 				bw.setPropertyValues(pvs, true);
 			}
 			catch (BeansException ex) {
@@ -169,6 +170,10 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
 		}
 
 		// Let subclasses do whatever initialization they like.
+		//1、创建Servlet内部上下文并与ServletContext建立双向引用关系
+		//2、设置双亲上下文
+		//3、启动Servlet内部上下文/容器
+		//4、启动spring mvc框架
 		initServletBean();
 
 		if (logger.isDebugEnabled()) {
@@ -223,14 +228,19 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
 		 */
 		public ServletConfigPropertyValues(ServletConfig config, Set<String> requiredProperties)
 				throws ServletException {
-
+			//将必要的properties的数据拷贝作为缺失的属性缓存，
+			//每次成功从ServletConfig中读取一个属性，则在requiredProperties的备份中移除，
+			//如果missingProps中还剩有未其他属性，则认为是ServletConfig属性丢失。
 			Set<String> missingProps = (!CollectionUtils.isEmpty(requiredProperties) ?
 					new HashSet<>(requiredProperties) : null);
-
+			//得到ServletConfig配置中的所有初始化参数名称
 			Enumeration<String> paramNames = config.getInitParameterNames();
 			while (paramNames.hasMoreElements()) {
+				//得到每一个参数名称
 				String property = paramNames.nextElement();
+				//获取对应的参数值
 				Object value = config.getInitParameter(property);
+				//包装成对应的PropertyValue，添加到缓存 propertyValueList中
 				addPropertyValue(new PropertyValue(property, value));
 				if (missingProps != null) {
 					missingProps.remove(property);
