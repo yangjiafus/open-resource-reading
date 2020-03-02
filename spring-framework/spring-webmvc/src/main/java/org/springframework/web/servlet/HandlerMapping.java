@@ -16,9 +16,9 @@
 
 package org.springframework.web.servlet;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.springframework.lang.Nullable;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * Interface to be implemented by objects that define a mapping between
@@ -78,9 +78,11 @@ public interface HandlerMapping {
 
 	/**
 	 * Name of the boolean {@link HttpServletRequest} attribute that indicates
-	 * whether type-level mappings should be inspected.
+	 * whether type-level mappings should be inspected（检查）.
 	 * <p>Note: This attribute is not required to be supported by all
 	 * HandlerMapping implementations.
+	 *
+	 * introspect 自查，自省
 	 */
 	String INTROSPECT_TYPE_LEVEL_MAPPING = HandlerMapping.class.getName() + ".introspectTypeLevelMapping";
 

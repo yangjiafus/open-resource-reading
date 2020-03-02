@@ -16,12 +16,12 @@
 
 package org.springframework.web.servlet.handler;
 
+import org.springframework.beans.BeansException;
+import org.springframework.util.CollectionUtils;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
-
-import org.springframework.beans.BeansException;
-import org.springframework.util.CollectionUtils;
 
 /**
  * Implementation of the {@link org.springframework.web.servlet.HandlerMapping}
@@ -54,6 +54,7 @@ import org.springframework.util.CollectionUtils;
  */
 public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 
+	//url与Controller的映射关系；这里的handler有可能是Controller的名称，不是实体Bean
 	private final Map<String, Object> urlMap = new LinkedHashMap<>();
 
 
@@ -99,7 +100,13 @@ public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 	 */
 	@Override
 	public void initApplicationContext() throws BeansException {
+		//初始化当前url映射处理器的拦截器，步骤如下：
+		//1、从Servlet内部上下文中获取已注册的HandlerInterceptor的对象，作为合适的拦截器，添加到合适拦截器
+		//缓存adaptedInterceptors中
+		//2、从父类AbstractHandlerMapping中的拦截器数组缓存中，遍历每一个拦截器，将其转化为HandlerInterceptor或
+		//WebRequestHandlerInterceptor,添加到父类的合适拦截器缓存adaptedInterceptors中
 		super.initApplicationContext();
+		//向父类AbstractURLHandlerMapping注册当前handlerMap中的url与controller映射关系
 		registerHandlers(this.urlMap);
 	}
 
@@ -116,6 +123,7 @@ public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 		else {
 			urlMap.forEach((url, handler) -> {
 				// Prepend with slash if not already present.
+				//为每一个mapping的url，都添加一个正斜杠开头
 				if (!url.startsWith("/")) {
 					url = "/" + url;
 				}
@@ -123,6 +131,18 @@ public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 				if (handler instanceof String) {
 					handler = ((String) handler).trim();
 				}
+				//向父类AbstractURLHandlerMapping注册处理器。
+				//注册过程：
+				//1、如果当前的处理器对象是处理的名称，则从Servlet内部上下文中获取对应的处理器对象；
+				//2、再从父类AbstractURLHandlerMapping的缓存handlerMap中获取URL对应的处理器对象；
+				//3、比较从Servlet内部上下文容器中获取的处理器对象与缓存中的处理器对象，不等则异常；
+				//4、相等则做以下判断确定当前处理器
+				//	a、URL是"/"，则是根处理器，并在父类设置当前根处理器
+				//	b、URL是"/*"，则是默认处理器，并在父类设置当前默认处理器
+				//	c、URL是其他形式，则添加到父类的url映射处理对象缓存中，即添加到handlerMap中；
+				//注意父类AbstractURLHandlerMapping的handlerMap的处理器对象与当前SimpleURLHandlerMapping的
+				//handlerMap的处理器对象有区别，SimpleURLHandlerMapping的handlerMap的处理器对象可能是Controller
+				//的名称，父类AbstractURLHandlerMapping的handlerMap的处理器一定是处理器对象。
 				registerHandler(url, handler);
 			});
 		}

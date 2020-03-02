@@ -16,15 +16,15 @@
 
 package org.springframework.web.servlet.handler;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import org.springframework.lang.Nullable;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.PathMatcher;
 import org.springframework.web.context.request.WebRequestInterceptor;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * Contains and delegates calls to a {@link HandlerInterceptor} along with
@@ -44,14 +44,15 @@ import org.springframework.web.servlet.ModelAndView;
  */
 public final class MappedInterceptor implements HandlerInterceptor {
 
+	//拦截器拦截URI
 	@Nullable
 	private final String[] includePatterns;
-
+	//拦截器不拦截URI
 	@Nullable
 	private final String[] excludePatterns;
-
+	//具体拦截逻辑执行器，也是一个拦截器
 	private final HandlerInterceptor interceptor;
-
+	//路径匹配器
 	@Nullable
 	private PathMatcher pathMatcher;
 
@@ -146,15 +147,18 @@ public final class MappedInterceptor implements HandlerInterceptor {
 	public boolean matches(String lookupPath, PathMatcher pathMatcher) {
 		PathMatcher pathMatcherToUse = (this.pathMatcher != null ? this.pathMatcher : pathMatcher);
 		if (!ObjectUtils.isEmpty(this.excludePatterns)) {
+			//从排除的URL集合中匹配给定的路径，如果有则认为当前拦截器 匹配不成功
 			for (String pattern : this.excludePatterns) {
 				if (pathMatcherToUse.match(pattern, lookupPath)) {
 					return false;
 				}
 			}
 		}
+		//没有指定具体拦截URL，都认为匹配成功，需要拦截器处理
 		if (ObjectUtils.isEmpty(this.includePatterns)) {
 			return true;
 		}
+		//在指定匹配拦截URL中找得到指定的URL则认为是匹配成功的，拦截器需要处理
 		for (String pattern : this.includePatterns) {
 			if (pathMatcherToUse.match(pattern, lookupPath)) {
 				return true;

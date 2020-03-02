@@ -16,16 +16,12 @@
 
 package org.springframework.util;
 
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import org.springframework.lang.Nullable;
+
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.springframework.lang.Nullable;
 
 /**
  * {@link PathMatcher} implementation for Ant-style path patterns.
@@ -739,44 +735,71 @@ public class AntPathMatcher implements PathMatcher {
 		public int compare(String pattern1, String pattern2) {
 			PatternInfo info1 = new PatternInfo(pattern1);
 			PatternInfo info2 = new PatternInfo(pattern2);
+			//1、根据URL空判断：
+			//都为空则等；第一个URL为空，则第一个URL大于第二个URL；
+			//第二个URL为空，则第一个URL小于第二个URL
 
+			//判断URL是否为空，都为空则相等
 			if (info1.isLeastSpecific() && info2.isLeastSpecific()) {
 				return 0;
 			}
+			//第一个URL是空，则第一个URL大，空位不穷大嘛
 			else if (info1.isLeastSpecific()) {
 				return 1;
 			}
+			//第二个URL为空，则第二个URL大，空位不穷大嘛
 			else if (info2.isLeastSpecific()) {
 				return -1;
 			}
 
+			//2、根据与构造URL比较：
+			//都等则等；第一个URL与构造URL等，则第一个URL小于第二个URL；
+			//第二个URL与构造URL等，则第一个URL大于第二个URL；
 			boolean pattern1EqualsPath = pattern1.equals(path);
 			boolean pattern2EqualsPath = pattern2.equals(path);
+			//如果第一第二个URL都与给定的URL相等，则两个URL相等
 			if (pattern1EqualsPath && pattern2EqualsPath) {
 				return 0;
 			}
+			//如果第一个URL与给定URL相等，则认为第一个URL小于第二个URL
 			else if (pattern1EqualsPath) {
 				return -1;
 			}
+			//如果第二个URL与给定URL相等，则认为第一个URL大于第二个URL
 			else if (pattern2EqualsPath) {
 				return 1;
 			}
 
-			if (info1.isPrefixPattern() && info2.getDoubleWildcards() == 0) {
+
+			//3、根据URL前缀和双通配符比较
+			//如果第一个URL是前缀模式，且第二个为双通配符为0，则认为第一个URL大于第二个URL
+			if (
+					//第一个URL是前缀模式
+					info1.isPrefixPattern() &&
+							//第二个URL的双通配符为零，则认为第一个URL大
+							info2.getDoubleWildcards() == 0) {
 				return 1;
 			}
+			//第二个URL是前缀模式，第一个双通配符为零，则第一个URL小于第二个URL
 			else if (info2.isPrefixPattern() && info1.getDoubleWildcards() == 0) {
 				return -1;
 			}
 
+
+			//4、根据URL的总数据（长度、变量、通配符个数）比较：
+			//第一个URL总数据大，则第一个URL大于第二个URL
 			if (info1.getTotalCount() != info2.getTotalCount()) {
 				return info1.getTotalCount() - info2.getTotalCount();
 			}
 
+			//5、根据URL的长度比较：
+			//第一个URL长度长，则第一个URL小于第二个URL
 			if (info1.getLength() != info2.getLength()) {
 				return info2.getLength() - info1.getLength();
 			}
 
+			//6、根据URL单通配符个数比较：
+			//第一个URL单通配符的个数 大则，第一个URL大于第二个URL
 			if (info1.getSingleWildcards() < info2.getSingleWildcards()) {
 				return -1;
 			}
@@ -784,6 +807,8 @@ public class AntPathMatcher implements PathMatcher {
 				return 1;
 			}
 
+			//7、根据URL的变量个数比较：
+			//第一个URL的变量个数 大于 第二个URL变量个数，则第一个URL大于第二个URL
 			if (info1.getUriVars() < info2.getUriVars()) {
 				return -1;
 			}

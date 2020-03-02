@@ -16,14 +16,6 @@
 
 package org.springframework.web.servlet.handler;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.core.Ordered;
@@ -34,16 +26,19 @@ import org.springframework.util.PathMatcher;
 import org.springframework.web.HttpRequestHandler;
 import org.springframework.web.context.request.WebRequestInterceptor;
 import org.springframework.web.context.support.WebApplicationObjectSupport;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.CorsProcessor;
-import org.springframework.web.cors.CorsUtils;
-import org.springframework.web.cors.DefaultCorsProcessor;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.*;
 import org.springframework.web.servlet.HandlerExecutionChain;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.util.UrlPathHelper;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Abstract base class for {@link org.springframework.web.servlet.HandlerMapping}
@@ -73,11 +68,11 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	private UrlPathHelper urlPathHelper = new UrlPathHelper();
 
 	private PathMatcher pathMatcher = new AntPathMatcher();
-
+	//所有的拦截器链
 	private final List<Object> interceptors = new ArrayList<>();
-
+	//合适的，恰当的拦截器链
 	private final List<HandlerInterceptor> adaptedInterceptors = new ArrayList<>();
-
+	//请求跨域配置
 	private final UrlBasedCorsConfigurationSource globalCorsConfigSource = new UrlBasedCorsConfigurationSource();
 
 	private CorsProcessor corsProcessor = new DefaultCorsProcessor();
@@ -239,8 +234,15 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 */
 	@Override
 	protected void initApplicationContext() throws BeansException {
+		//空方法实现 扩展拦截器
 		extendInterceptors(this.interceptors);
+		//从上下文中加载已注册的URL拦截器 HandlerInterceptor，并添加到合适的拦截器缓存adaptedInterceptors中。
+		// URL拦截器的匹配规则：
+		//1、首先从排除不拦截URL的缓存中查找，如果有，则认为当前拦截器不处理当前URL请求
+		//2、如果拦截URL配置缓存为空，则默认为当前拦截器要处理当前URL请求
+		//3、从拦截URL配置缓存中查找，如果有，则认为当前拦截器要处理当前URL请求
 		detectMappedInterceptors(this.adaptedInterceptors);
+		//将拦截器数组缓存的每一个拦截器转化为处理器拦截器 HandlerInterceptor，并添加到缓存 adaptedInterceptors中。
 		initInterceptors();
 	}
 
@@ -265,6 +267,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 */
 	protected void detectMappedInterceptors(List<HandlerInterceptor> mappedInterceptors) {
 		mappedInterceptors.addAll(
+				//从Servlet内部上下文中获取已注册的拦截器 MappedInterceptor，添加到拦截器集合中
 				BeanFactoryUtils.beansOfTypeIncludingAncestors(
 						obtainApplicationContext(), MappedInterceptor.class, true, false).values());
 	}
@@ -282,6 +285,12 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 				if (interceptor == null) {
 					throw new IllegalArgumentException("Entry number " + i + " in interceptors array is null");
 				}
+				//将当前拦截器数组中的拦截器，转化为处理器的拦截器类型 HandlerInterceptor；
+				//不能转化的则报错！
+				//1、如果interceptors的拦截器是 HandlerInterceptor类型，则直接转化为HandlerInterceptor类型，添加到
+				//合适的拦截器缓存中；
+				//2、如果interceptors的拦截器是 web请求拦截器 WebRequestInterceptor，则将其包装为适配拦截器类型
+				//WebRequestHandlerInterceptorAdapter，并添加在合适的拦截器缓存adaptedInterceptors中。
 				this.adaptedInterceptors.add(adaptInterceptor(interceptor));
 			}
 		}
@@ -347,6 +356,11 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	@Override
 	@Nullable
 	public final HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
+		//根据请求URL全路径，查找AbstractURLHandlerMapping内部缓存的处理器：
+		//首先根请求全路径URL，从AbstractURLHandlerMapping缓存中查找处理器；
+		//如果没有，则利用最佳匹配路径进行查找处理器并返回；返回处理器为空时，则执行后续查找处理器逻辑；
+		//如果请求全路径是"/"，则返回根处理器；
+		//如果请求全路径是其他，则返回默认处理器；
 		Object handler = getHandlerInternal(request);
 		if (handler == null) {
 			handler = getDefaultHandler();
@@ -359,12 +373,16 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			String handlerName = (String) handler;
 			handler = obtainApplicationContext().getBean(handlerName);
 		}
-
+		//为当前处理器构建处理器执行链，并未处理器执行链添加拦截器
 		HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request);
 		if (CorsUtils.isCorsRequest(request)) {
+			//得到当前请求的全局跨域配置
 			CorsConfiguration globalConfig = this.globalCorsConfigSource.getCorsConfiguration(request);
+			//得到当前请求对应的处理器的跨域配置
 			CorsConfiguration handlerConfig = getCorsConfiguration(handler, request);
+			//合并全局跨域配置和处理器跨域配置
 			CorsConfiguration config = (globalConfig != null ? globalConfig.combine(handlerConfig) : handlerConfig);
+			//根据跨域配置，构建具备跨域处理能力的处理器链
 			executionChain = getCorsHandlerExecutionChain(request, executionChain, config);
 		}
 		return executionChain;
@@ -412,10 +430,15 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	protected HandlerExecutionChain getHandlerExecutionChain(Object handler, HttpServletRequest request) {
 		HandlerExecutionChain chain = (handler instanceof HandlerExecutionChain ?
 				(HandlerExecutionChain) handler : new HandlerExecutionChain(handler));
-
+		//得到请求全路径URL
 		String lookupPath = this.urlPathHelper.getLookupPathForRequest(request);
 		for (HandlerInterceptor interceptor : this.adaptedInterceptors) {
 			if (interceptor instanceof MappedInterceptor) {
+				//根据映射拦截器，判断当前请求全路径URL是否在拦截器的排除URL配置缓存excludePatterns内，
+				//如果在则不匹配；
+				//如果不在排除缓存excludePatterns内，则判断是否在拦截URL缓存includePatterns内；
+				//如果拦截URL缓存includePatterns为空或真实存在都认为匹配。
+				//如果匹配，则当前拦截器符合当前处理器，添加到处理器链的拦截器缓存中
 				MappedInterceptor mappedInterceptor = (MappedInterceptor) interceptor;
 				if (mappedInterceptor.matches(lookupPath, this.pathMatcher)) {
 					chain.addInterceptor(mappedInterceptor.getInterceptor());

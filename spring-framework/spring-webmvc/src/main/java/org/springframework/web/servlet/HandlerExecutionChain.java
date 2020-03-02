@@ -16,17 +16,16 @@
 
 package org.springframework.web.servlet;
 
-import java.util.ArrayList;
-import java.util.List;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Handler execution chain, consisting of handler object and any handler interceptors.
@@ -39,12 +38,14 @@ import org.springframework.util.ObjectUtils;
 public class HandlerExecutionChain {
 
 	private static final Log logger = LogFactory.getLog(HandlerExecutionChain.class);
-
+	//具体的请求处理对象handler，即Controller Bean对象
 	private final Object handler;
 
+	//拦截器Interceptor链，增强Controller；这里拦截器数组，最终是以拦截器List体现的；
+	//即，会将拦截器数组的拦截器合并到拦截器List中
 	@Nullable
 	private HandlerInterceptor[] interceptors;
-
+	//拦截器Interceptor链，增强Controller
 	@Nullable
 	private List<HandlerInterceptor> interceptorList;
 
@@ -66,15 +67,21 @@ public class HandlerExecutionChain {
 	 * (in the given order) before the handler itself executes
 	 */
 	public HandlerExecutionChain(Object handler, @Nullable HandlerInterceptor... interceptors) {
+		//如果当前handler是一个HandlerExecutionChain，则不能直接赋予handler属性，
+		//因为handler属性是Controller的引用，所以必须进一步处理。
 		if (handler instanceof HandlerExecutionChain) {
 			HandlerExecutionChain originalChain = (HandlerExecutionChain) handler;
+			//从HandlerExecutionChain中获取对应的handler属性，并设置到当前HandlerExecutionChain中
 			this.handler = originalChain.getHandler();
 			this.interceptorList = new ArrayList<>();
+			//将转化而来的HandlerExecutionChain的拦截器链添加到当前的拦截器链中
 			CollectionUtils.mergeArrayIntoCollection(originalChain.getInterceptors(), this.interceptorList);
 			CollectionUtils.mergeArrayIntoCollection(interceptors, this.interceptorList);
 		}
 		else {
+			//直接将Controller bean 赋予给handler引用
 			this.handler = handler;
+			//设置拦截器链
 			this.interceptors = interceptors;
 		}
 	}
@@ -88,15 +95,17 @@ public class HandlerExecutionChain {
 	}
 
 	public void addInterceptor(HandlerInterceptor interceptor) {
+		//将拦截器数组合并到拦截器List后，向拦截器List添加新的拦截器
 		initInterceptorList().add(interceptor);
 	}
 
 	public void addInterceptors(HandlerInterceptor... interceptors) {
 		if (!ObjectUtils.isEmpty(interceptors)) {
+			//直接将添加的拦截器数组合并到拦截器链中去
 			CollectionUtils.mergeArrayIntoCollection(interceptors, initInterceptorList());
 		}
 	}
-
+	//将interceptors的拦截器合并到拦截器List interceptorList中，并返回拦截器链
 	private List<HandlerInterceptor> initInterceptorList() {
 		if (this.interceptorList == null) {
 			this.interceptorList = new ArrayList<>();
