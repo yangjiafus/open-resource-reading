@@ -236,13 +236,10 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	protected void initApplicationContext() throws BeansException {
 		//空方法实现 扩展拦截器
 		extendInterceptors(this.interceptors);
-		//从上下文中加载已注册的URL拦截器 HandlerInterceptor，并添加到合适的拦截器缓存adaptedInterceptors中。
-		// URL拦截器的匹配规则：
-		//1、首先从排除不拦截URL的缓存中查找，如果有，则认为当前拦截器不处理当前URL请求
-		//2、如果拦截URL配置缓存为空，则默认为当前拦截器要处理当前URL请求
-		//3、从拦截URL配置缓存中查找，如果有，则认为当前拦截器要处理当前URL请求
+		//从上下文中加载已注册的URL拦截器 MappedInterceptor，并添加到合适的拦截器缓存adaptedInterceptors中。
 		detectMappedInterceptors(this.adaptedInterceptors);
-		//将拦截器数组缓存的每一个拦截器转化为处理器拦截器 HandlerInterceptor，并添加到缓存 adaptedInterceptors中。
+		//将拦截器数组缓存的每一个拦截器转化为处理器拦截器 HandlerInterceptor/WebRequestHandlerInterceptorAdapter，
+		//并添加到缓存 adaptedInterceptors中。
 		initInterceptors();
 	}
 
@@ -376,9 +373,9 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 		//为当前处理器构建处理器执行链，并未处理器执行链添加拦截器
 		HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request);
 		if (CorsUtils.isCorsRequest(request)) {
-			//得到当前请求的全局跨域配置
+			//得到当前请求的全局跨域配置，通过UrlBasedCorsConfigurationSource管理
 			CorsConfiguration globalConfig = this.globalCorsConfigSource.getCorsConfiguration(request);
-			//得到当前请求对应的处理器的跨域配置
+			//得到当前请求对应的处理器自定义的跨域配置
 			CorsConfiguration handlerConfig = getCorsConfiguration(handler, request);
 			//合并全局跨域配置和处理器跨域配置
 			CorsConfiguration config = (globalConfig != null ? globalConfig.combine(handlerConfig) : handlerConfig);
@@ -462,9 +459,11 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	protected CorsConfiguration getCorsConfiguration(Object handler, HttpServletRequest request) {
 		Object resolvedHandler = handler;
 		if (handler instanceof HandlerExecutionChain) {
+			//得到处理器
 			resolvedHandler = ((HandlerExecutionChain) handler).getHandler();
 		}
 		if (resolvedHandler instanceof CorsConfigurationSource) {
+			//得到处理器对应的自定义跨域配置
 			return ((CorsConfigurationSource) resolvedHandler).getCorsConfiguration(request);
 		}
 		return null;

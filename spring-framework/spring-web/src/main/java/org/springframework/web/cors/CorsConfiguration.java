@@ -16,19 +16,14 @@
 
 package org.springframework.web.cors;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import org.springframework.http.HttpMethod;
 import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * A container for CORS configuration along with methods to check against the
@@ -50,27 +45,33 @@ import org.springframework.util.StringUtils;
 public class CorsConfiguration {
 
 	/** Wildcard representing <em>all</em> origins, methods, or headers. */
+	//表示允许所有其他地址访问当前web服务
 	public static final String ALL = "*";
 
+	//http 默认请求方法为 GET、HEAD
 	private static final List<HttpMethod> DEFAULT_METHODS =
 			Collections.unmodifiableList(Arrays.asList(HttpMethod.GET, HttpMethod.HEAD));
 
+	//默认允许所有地址访问
 	private static final List<String> DEFAULT_PERMIT_ALL =
 			Collections.unmodifiableList(Arrays.asList(ALL));
 
+	//默认允许请求的方式 GET、HEAD、POST
 	private static final List<String> DEFAULT_PERMIT_METHODS =
 			Collections.unmodifiableList(Arrays.asList(HttpMethod.GET.name(), HttpMethod.HEAD.name(), HttpMethod.POST.name()));
 
-
+	//所有被允许的访问的源地址，默认为 DEFAULT_PERMIT_ALL
 	@Nullable
 	private List<String> allowedOrigins;
 
+	//所有被允许的访问的HTTP请求方式，默认为 DEFAULT_PERMIT_METHODS
 	@Nullable
 	private List<String> allowedMethods;
 
 	@Nullable
 	private List<HttpMethod> resolvedMethods = DEFAULT_METHODS;
 
+	//默认为 DEFAULT_PERMIT_ALL
 	@Nullable
 	private List<String> allowedHeaders;
 
@@ -80,6 +81,7 @@ public class CorsConfiguration {
 	@Nullable
 	private Boolean allowCredentials;
 
+	//default 3min
 	@Nullable
 	private Long maxAge;
 
@@ -423,20 +425,22 @@ public class CorsConfiguration {
 	}
 
 	/**
-	 * Check the origin of the request against the configured allowed origins.
+	 * Check the origin of the request against（反对） the configured allowed origins.
 	 * @param requestOrigin the origin to check
 	 * @return the origin to use for the response, or {@code null} which
 	 * means the request origin is not allowed
 	 */
 	@Nullable
 	public String checkOrigin(@Nullable String requestOrigin) {
+		//请求必须要带域，否则不让访问
 		if (!StringUtils.hasText(requestOrigin)) {
 			return null;
 		}
+		//没有配置允许的域，则不允许访问
 		if (ObjectUtils.isEmpty(this.allowedOrigins)) {
 			return null;
 		}
-
+		//如果域名配置中有允许所有域访问，则允许访问，且返回当前请求域或全域通配符“*”
 		if (this.allowedOrigins.contains(ALL)) {
 			if (this.allowCredentials != Boolean.TRUE) {
 				return ALL;
@@ -445,6 +449,7 @@ public class CorsConfiguration {
 				return requestOrigin;
 			}
 		}
+		//如果当前请求域名在被允许的域范围内，则允许访问，且返回当前请求域名
 		for (String allowedOrigin : this.allowedOrigins) {
 			if (requestOrigin.equalsIgnoreCase(allowedOrigin)) {
 				return requestOrigin;
@@ -464,12 +469,15 @@ public class CorsConfiguration {
 	 */
 	@Nullable
 	public List<HttpMethod> checkHttpMethod(@Nullable HttpMethod requestMethod) {
+		//不带请求方法的请求，不被允许访问
 		if (requestMethod == null) {
 			return null;
 		}
+		//允许HTTP请求方法配置为空，则允许访问，且返回当前请求方法
 		if (this.resolvedMethods == null) {
 			return Collections.singletonList(requestMethod);
 		}
+		//在允许HTTP请求方法配置中包含当前请求的HTTP请求，则允许访问
 		return (this.resolvedMethods.contains(requestMethod) ? this.resolvedMethods : null);
 	}
 
@@ -483,25 +491,33 @@ public class CorsConfiguration {
 	 */
 	@Nullable
 	public List<String> checkHeaders(@Nullable List<String> requestHeaders) {
+		//请求不带请求头，不允许访问
 		if (requestHeaders == null) {
 			return null;
 		}
+		//请求header中内容为空，不允许访问
 		if (requestHeaders.isEmpty()) {
 			return Collections.emptyList();
 		}
+		//允许请求头配置中为空，则不允许访问
 		if (ObjectUtils.isEmpty(this.allowedHeaders)) {
 			return null;
 		}
-
+		//是否包含允许所有请求头
 		boolean allowAnyHeader = this.allowedHeaders.contains(ALL);
+		//得到当前请求头的大小，创建对等的缓存list
 		List<String> result = new ArrayList<>(requestHeaders.size());
+		//遍历请求头的每一个头信息
 		for (String requestHeader : requestHeaders) {
 			if (StringUtils.hasText(requestHeader)) {
 				requestHeader = requestHeader.trim();
+				//如果是允许所有请求头，则添加到请求头缓存
 				if (allowAnyHeader) {
 					result.add(requestHeader);
 				}
 				else {
+					//如果不是允许所有请求头访问，则从允许请求头配置中查找匹配的请求头信息，
+					//如果有匹配的添加到缓存
 					for (String allowedHeader : this.allowedHeaders) {
 						if (requestHeader.equalsIgnoreCase(allowedHeader)) {
 							result.add(requestHeader);
@@ -511,6 +527,7 @@ public class CorsConfiguration {
 				}
 			}
 		}
+		//匹配成功的请求头缓存，如果有就返回；没有返回null 表示不允许访问
 		return (result.isEmpty() ? null : result);
 	}
 

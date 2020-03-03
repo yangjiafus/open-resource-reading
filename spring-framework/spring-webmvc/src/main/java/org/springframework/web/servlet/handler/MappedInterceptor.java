@@ -145,6 +145,10 @@ public final class MappedInterceptor implements HandlerInterceptor {
 	 * @return {@code true} if the interceptor applies to the given request path
 	 */
 	public boolean matches(String lookupPath, PathMatcher pathMatcher) {
+		// 扩展URL拦截器的匹配规则：
+		//1、首先从排除不拦截URL的缓存中查找，如果有，则认为当前拦截器不处理当前URL请求
+		//2、如果拦截URL配置缓存为空，则默认为当前拦截器要处理当前URL请求
+		//3、从拦截URL配置缓存中查找，如果有，则认为当前拦截器要处理当前URL请求
 		PathMatcher pathMatcherToUse = (this.pathMatcher != null ? this.pathMatcher : pathMatcher);
 		if (!ObjectUtils.isEmpty(this.excludePatterns)) {
 			//从排除的URL集合中匹配给定的路径，如果有则认为当前拦截器 匹配不成功

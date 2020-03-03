@@ -16,16 +16,16 @@
 
 package org.springframework.web.cors;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
-
 import org.springframework.lang.Nullable;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.util.Assert;
 import org.springframework.util.PathMatcher;
 import org.springframework.web.util.UrlPathHelper;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Provide a per request {@link CorsConfiguration} instance based on a
@@ -38,7 +38,7 @@ import org.springframework.web.util.UrlPathHelper;
  * @since 4.2
  */
 public class UrlBasedCorsConfigurationSource implements CorsConfigurationSource {
-
+	//全局跨域配置
 	private final Map<String, CorsConfiguration> corsConfigurations = new LinkedHashMap<>();
 
 	private PathMatcher pathMatcher = new AntPathMatcher();
@@ -109,6 +109,7 @@ public class UrlBasedCorsConfigurationSource implements CorsConfigurationSource 
 	/**
 	 * Register a {@link CorsConfiguration} for the specified path pattern.
 	 */
+	//对URL进行支持全局跨域配置注册
 	public void registerCorsConfiguration(String path, CorsConfiguration config) {
 		this.corsConfigurations.put(path, config);
 	}

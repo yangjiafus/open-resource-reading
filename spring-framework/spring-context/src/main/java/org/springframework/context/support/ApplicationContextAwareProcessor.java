@@ -16,23 +16,17 @@
 
 package org.springframework.context.support;
 
-import java.security.AccessControlContext;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.Aware;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.config.EmbeddedValueResolver;
-import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.ApplicationEventPublisherAware;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.EmbeddedValueResolverAware;
-import org.springframework.context.EnvironmentAware;
-import org.springframework.context.MessageSourceAware;
-import org.springframework.context.ResourceLoaderAware;
+import org.springframework.context.*;
 import org.springframework.lang.Nullable;
 import org.springframework.util.StringValueResolver;
+
+import java.security.AccessControlContext;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 
 /**
  * {@link org.springframework.beans.factory.config.BeanPostProcessor}
@@ -88,11 +82,14 @@ class ApplicationContextAwareProcessor implements BeanPostProcessor {
 
 		if (acc != null) {
 			AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
+				//对需要感知上下文的Bean赋于上下文，这里是对ApplicationContextAware接口的实现
 				invokeAwareInterfaces(bean);
 				return null;
 			}, acc);
 		}
 		else {
+			//对需要感知上下文的Bean赋于上下文，这里是对ApplicationContextAware接口的实现，
+			//这里也说明了Aware接口的实现，是依赖与BeanPostProcessor而实现的
 			invokeAwareInterfaces(bean);
 		}
 
@@ -116,6 +113,8 @@ class ApplicationContextAwareProcessor implements BeanPostProcessor {
 			if (bean instanceof MessageSourceAware) {
 				((MessageSourceAware) bean).setMessageSource(this.applicationContext);
 			}
+			//如果当前Bean是实现了ApplicationContextAware上下文感知接口，则将当前上下文赋值给当前Bean。
+			//这里也是Spring web mvc 对Servlet内部上下文处理的一个契机点。如 ApplicationObjectSupport类。
 			if (bean instanceof ApplicationContextAware) {
 				((ApplicationContextAware) bean).setApplicationContext(this.applicationContext);
 			}

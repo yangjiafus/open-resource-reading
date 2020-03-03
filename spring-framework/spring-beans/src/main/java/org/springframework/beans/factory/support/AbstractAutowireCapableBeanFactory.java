@@ -378,6 +378,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		Object result = existingBean;
 		for (BeanPostProcessor beanProcessor : getBeanPostProcessors()) {
+			//遍历每一个注册到容器的BeanPostProcessor，
+			//执行前置处理，为当前Bean使用BeanPostProcessor进行修改，
+			//前置处理完毕后，返回修改后的Bean
 			Object current = beanProcessor.postProcessBeforeInitialization(result, beanName);
 			if (current == null) {
 				return result;
@@ -1704,7 +1707,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		Object wrappedBean = bean;
 		if (mbd == null || !mbd.isSynthetic()) {
-			//对BeanPostProcessor初始化的前置后置处理器的调用
+			//对BeanPostProcessor初始化的前置后置处理器的调用；
+			//spring web mvc 利用此处实现 HandlerMapping的注册
 			wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
 		}
 

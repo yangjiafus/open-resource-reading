@@ -100,8 +100,8 @@ public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 	 */
 	@Override
 	public void initApplicationContext() throws BeansException {
-		//初始化当前url映射处理器的拦截器，步骤如下：
-		//1、从Servlet内部上下文中获取已注册的HandlerInterceptor的对象，作为合适的拦截器，添加到合适拦截器
+		//注册HandlerMapping的所有拦截器（注册在AbstractHandlerMapping中），步骤如下：
+		//1、从Servlet内部上下文中获取已注册的MappedInterceptor的对象，作为合适的拦截器，添加到合适拦截器
 		//缓存adaptedInterceptors中
 		//2、从父类AbstractHandlerMapping中的拦截器数组缓存中，遍历每一个拦截器，将其转化为HandlerInterceptor或
 		//WebRequestHandlerInterceptor,添加到父类的合适拦截器缓存adaptedInterceptors中

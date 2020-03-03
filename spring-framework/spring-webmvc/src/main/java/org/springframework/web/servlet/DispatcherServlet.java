@@ -487,7 +487,31 @@ public class DispatcherServlet extends FrameworkServlet {
 		initMultipartResolver(context);
 		initLocaleResolver(context);
 		initThemeResolver(context);
-		//从Servlet 内部上下文初始化
+		//向DispatchServlet注册HandlerMapping。注册的过程如下：
+		//1、从Servlet内部上下文中获取已经注册到容器的HandlerMapping注册到DispatchServlet的handlerMappings中；
+		//这些已经在容器注册的HandlerMapping，可以使用xml方式或注解方式向IOC容器注册。
+		//2、如果从IOC容器中没有找到，则使用默认配置DispatchServlet.properties中的两HandlerMapping：
+		//BeanNameUrlHandlerMapping和RequestMappingHandlerMapping。这两个默认的HandlerMapping，将在此处
+		//向容器实例化且注册，最终也想DispatchServlet的缓存handlerMappings注册。
+		//
+		//在HandlerMapping实例化Bean过程中会初始化HandlerMapping的拦截器和url处理器的关系。具体如下：
+		//<p/>
+		//HandlerMapping在实例化时，会为HandlerMapping执行所有的BeanPostProcessor，其中 ApplicationContextAwareProcessor
+		//（是由Spring IOC容器在初始化时默认配置的BeanPostProcessor）
+		//会对所有想要感知（实现ApplicationContextAware的接口）执行setApplicationContext()；支持spring web的ApplicationObjectSupport
+		//接口将会触发setApplicationContext()方法，从而初始化实现initApplicationContext()接口的HandlerMapping。
+		//HandlerMapping的初始化内容（以SimpleURLHandlerMapping为例）：
+		//1、向HandlerMapping注册拦截器MappedInterceptor（从容器中获取），实际上是向AbstractHandlerMapping的adaptedInterceptors缓存注册；
+		//这里有个细节，针对AbstractHandlerMapping的拦截器数组interceptors，不是HandlerInterceptor的，且是WebRequestInterceptor
+		//的，要将其包装成WebRequestHandlerInterceptorAdapter作为拦截器注册到拦截器List中。注意并未提供任何映射关系。
+		//2、向HandlerMapping注册URl与处理器映射关系。映射关系注册内容如下：
+		//	a、遍历SimpleUrlHandlerMapping的urlMap，取出url，对应的处理器；
+		//如果处理器是名称，则从Servlet内部上下文中获取该处理器名称对应的处理器；
+		//	b、如果父类AbstractURLHandlerMapping同url的处理器存在，与SimpleURLHandlerMapping的处理器，相等则不出任何处理，
+		//不相等认为是异常情况；
+		//	c、如果父类AbstractURLHandlerMapping同url的处理器不存在，则向父类AbstractURLHandlerMapping注
+		//册该url与处理器的关系。该注册url与处理器的关系，有可能是根处理器关系、默认处理器关系和普通处理器关系。
+		//理论上这里的根处理器关系和默认处理器关系很可能被覆盖掉，因为url为"/"和"/*"，很容易被其他处理器使用。
 		initHandlerMappings(context);
 		initHandlerAdapters(context);
 		initHandlerExceptionResolvers(context);
@@ -569,7 +593,8 @@ public class DispatcherServlet extends FrameworkServlet {
 	 */
 	private void initHandlerMappings(ApplicationContext context) {
 		this.handlerMappings = null;
-
+		//这些已注册HandlerMapping可以通过spring配置（xml或Annotation）扫描注册到容器。
+		//从容器中获取已经注册到Servlet内部上下文/容器的HandlerMapping
 		if (this.detectAllHandlerMappings) {
 			// Find all HandlerMappings in the ApplicationContext, including ancestor contexts.
 			//从初始化完毕的Servlet内部上下文中，找到已经注册的所有handlerMapping
@@ -584,6 +609,8 @@ public class DispatcherServlet extends FrameworkServlet {
 		}
 		else {
 			try {
+				//如果只需要一个HandlerMapping，则直接Servlet内部上下文获取名为“handlerMapping”的Bean
+				//作为HandlerMapping。
 				HandlerMapping hm = context.getBean(HANDLER_MAPPING_BEAN_NAME, HandlerMapping.class);
 				this.handlerMappings = Collections.singletonList(hm);
 			}
@@ -591,10 +618,14 @@ public class DispatcherServlet extends FrameworkServlet {
 				// Ignore, we'll add a default HandlerMapping later.
 			}
 		}
-
+		//如果未从容器找到已经注册HandlerMapping，则使用spring web 默认配置的HandlerMapping
 		// Ensure we have at least one HandlerMapping, by registering
 		// a default HandlerMapping if no other mappings are found.
 		if (this.handlerMappings == null) {
+			//如果当前没有配置HandlerMapping，则使用默认的HandlerMapping。
+			//spring web 默认HandlerMapping配置在DispatcherServlet.properties中，
+			//默认的HandlerMapping为BeanNameUrlHandlerMapping RequestMappingHandlerMapping；
+			//在此处向容器实例化HandlerMapping Bean，并向容器注册，注册到 disposableBeans缓存中。
 			this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
 			if (logger.isDebugEnabled()) {
 				logger.debug("No HandlerMappings found in servlet '" + getServletName() + "': using default");
