@@ -137,6 +137,10 @@ public abstract class AbstractUrlHandlerMapping extends AbstractHandlerMapping i
 		//与全路径解析出全路径中的参数，并解密参数，添加到参数缓存
 		//7、使用处理器、最佳匹配路路径、差异路径、参数缓存构建处理器执行链 HandlerExecutionChain
 		Object handler = lookupHandler(lookupPath, request);
+		//TODO spring在这里不知道为什么不先做简单的而是先做复杂的lookupHandler。
+		//如果从注册的url缓存中没有找到对应的处理器，则判断请求的是不是根处理器和默认处理器，
+		//最后将处理器转化为处理器执行链HandlerExecutionChain，这个方法换回的处理器都是
+		// HandlerExecutionChain。
 		if (handler == null) {
 			// We need to care for the default handler directly, since we need to
 			// expose the PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE for it as well.
@@ -159,6 +163,8 @@ public abstract class AbstractUrlHandlerMapping extends AbstractHandlerMapping i
 				handler = buildPathExposingHandler(rawHandler, lookupPath, lookupPath, null);
 			}
 		}
+
+
 		if (handler != null && logger.isDebugEnabled()) {
 			logger.debug("Mapping [" + lookupPath + "] to " + handler);
 		}

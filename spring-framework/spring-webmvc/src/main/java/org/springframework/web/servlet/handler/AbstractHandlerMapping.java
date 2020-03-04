@@ -68,7 +68,18 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	private UrlPathHelper urlPathHelper = new UrlPathHelper();
 
 	private PathMatcher pathMatcher = new AntPathMatcher();
-	//所有的拦截器链
+	//所有的拦截器链，根据具体应用需要，自定义配置而来。
+	//最终会被 WebMvcConfigurationSupport获取注册到该缓存中。
+	//	@Configuration
+	//	@EnableWebMvc
+	//	public class WebConfig extends WebMvcConfigurerAdapter {
+	//		@Override
+	//		public void addInterceptors(InterceptorRegistry registry) {
+	//			registry.addInterceptor(new LocaleInterceptor());
+	//			registry.addInterceptor(newThemeInterceptor()).addPathPatterns("/**").excludePathPatterns("/admin/**");
+	//			registry.addInterceptor(new SecurityInterceptor()).addPathPatterns("/secure/*");
+	//		}
+	//	}
 	private final List<Object> interceptors = new ArrayList<>();
 	//合适的，恰当的拦截器链
 	private final List<HandlerInterceptor> adaptedInterceptors = new ArrayList<>();
@@ -370,8 +381,14 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			String handlerName = (String) handler;
 			handler = obtainApplicationContext().getBean(handlerName);
 		}
-		//为当前处理器构建处理器执行链，并未处理器执行链添加拦截器
+		//为当前处理器执行链配置拦截器和跨域能力
+		//配置拦截器：
+		//1、遍历所有已注册到AbstractHandlerMapping的拦截器，把不是MappedInterceptor的拦截器直接
+		//配置到处理器上；
+		//2、把是MappedInterceptor拦截器的，判断拦截器的拦截器配置是否与当前请求URL是否匹配，
+		//如果匹配，则把拦截器配置到当前处理器上。
 		HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request);
+		//配置跨域能力
 		if (CorsUtils.isCorsRequest(request)) {
 			//得到当前请求的全局跨域配置，通过UrlBasedCorsConfigurationSource管理
 			CorsConfiguration globalConfig = this.globalCorsConfigSource.getCorsConfiguration(request);
@@ -379,7 +396,9 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			CorsConfiguration handlerConfig = getCorsConfiguration(handler, request);
 			//合并全局跨域配置和处理器跨域配置
 			CorsConfiguration config = (globalConfig != null ? globalConfig.combine(handlerConfig) : handlerConfig);
-			//根据跨域配置，构建具备跨域处理能力的处理器链
+			//根据跨域配置，构建具备跨域处理能力的处理器链：
+			//1、如果当前请求是预处理请求，即是支持跨域，也不给跨域执行链配置跨域拦截器
+			//2、如果不是欲处理请求，则需要配置跨域拦截器
 			executionChain = getCorsHandlerExecutionChain(request, executionChain, config);
 		}
 		return executionChain;
@@ -431,17 +450,15 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 		String lookupPath = this.urlPathHelper.getLookupPathForRequest(request);
 		for (HandlerInterceptor interceptor : this.adaptedInterceptors) {
 			if (interceptor instanceof MappedInterceptor) {
-				//根据映射拦截器，判断当前请求全路径URL是否在拦截器的排除URL配置缓存excludePatterns内，
-				//如果在则不匹配；
-				//如果不在排除缓存excludePatterns内，则判断是否在拦截URL缓存includePatterns内；
-				//如果拦截URL缓存includePatterns为空或真实存在都认为匹配。
-				//如果匹配，则当前拦截器符合当前处理器，添加到处理器链的拦截器缓存中
 				MappedInterceptor mappedInterceptor = (MappedInterceptor) interceptor;
+				//判断当前请求路径URL，是否有匹配（存在）的MappedInterceptor拦截器,
+				//如果有对应的MappedInterceptor则为当前处理器添加配置该拦截器
 				if (mappedInterceptor.matches(lookupPath, this.pathMatcher)) {
 					chain.addInterceptor(mappedInterceptor.getInterceptor());
 				}
 			}
 			else {
+				//为当前处理器配置已注册的非MappedInterceptor拦截器
 				chain.addInterceptor(interceptor);
 			}
 		}
@@ -484,11 +501,14 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	protected HandlerExecutionChain getCorsHandlerExecutionChain(HttpServletRequest request,
 			HandlerExecutionChain chain, @Nullable CorsConfiguration config) {
 
+		//如果是预处理请求
 		if (CorsUtils.isPreFlightRequest(request)) {
 			HandlerInterceptor[] interceptors = chain.getInterceptors();
+			//不配置跨域拦截器
 			chain = new HandlerExecutionChain(new PreFlightHandler(config), interceptors);
 		}
 		else {
+			//不是预处理请求，则需要对跨域处理执行链配置跨域拦截器
 			chain.addInterceptor(new CorsInterceptor(config));
 		}
 		return chain;

@@ -54,7 +54,8 @@ import java.util.Properties;
  */
 public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 
-	//url与Controller的映射关系；这里的handler有可能是Controller的名称，不是实体Bean
+	//url与Controller的映射关系；这里的handler有可能是Controller的名称，不是实体Bean。
+	//这里需要显式配置，在容器初始化时，解析配置并添加到urlMap缓存。
 	private final Map<String, Object> urlMap = new LinkedHashMap<>();
 
 
