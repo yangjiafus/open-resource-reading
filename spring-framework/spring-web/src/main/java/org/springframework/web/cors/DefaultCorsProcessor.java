@@ -16,17 +16,8 @@
 
 package org.springframework.web.cors;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -37,6 +28,14 @@ import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.util.WebUtils;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * The default implementation of {@link CorsProcessor}, as defined by the
@@ -61,34 +60,48 @@ public class DefaultCorsProcessor implements CorsProcessor {
 	@SuppressWarnings("resource")
 	public boolean processRequest(@Nullable CorsConfiguration config, HttpServletRequest request,
 			HttpServletResponse response) throws IOException {
-
+		//不是跨域请求，正常返回
 		if (!CorsUtils.isCorsRequest(request)) {
 			return true;
 		}
 
 		ServletServerHttpResponse serverResponse = new ServletServerHttpResponse(response);
+		//获取响应response头中的 Access-Control-Allow-Origin（访问控制允许源地址，暂且这么直译） 属性，
+		//如果有值则认为，服务（其实的跨域拦截器CorsInterceptor的DefaultCorsProcessor已处理跨域了）
+		//已经进行了跨域处理，当前跨域处理器直接返回。
 		if (responseHasCors(serverResponse)) {
 			logger.debug("Skip CORS processing: response already contains \"Access-Control-Allow-Origin\" header");
 			return true;
 		}
 
 		ServletServerHttpRequest serverRequest = new ServletServerHttpRequest(request);
+		//同源策略：
+		//协议、域名和端口都保持一致的请求，才认为是同源，任何一个不一样都不认为是同源。
+		//根据同源策略判断请求与服务是否同源，是同源请求，则不做跨域请求处理
 		if (WebUtils.isSameOrigin(serverRequest)) {
 			logger.debug("Skip CORS processing: request is from same origin");
 			return true;
 		}
-
+		//判断当前请求是否是预请求 OPTIONS（HTTP请求的一种方式）,判断标准：
+		//1、http请求方法为 OPTIONS
+		//2、请求头的Access-Control-Request-Method属性必须有值
+		//3、当前请求必须是跨域请求，即Origin属性必有有值
+		//三者不可缺一
 		boolean preFlightRequest = CorsUtils.isPreFlightRequest(request);
 		if (config == null) {
+			//在未配置允许跨域访问时，跨域请求的预请求不进行跨域处理，返回false表示请求处理失败。
+			//响应response状态码标记为 403，并返回body：Invalid CORS request
 			if (preFlightRequest) {
 				rejectRequest(serverResponse);
 				return false;
 			}
 			else {
+			//在未配置允许跨域访问时，跨域请求不进行跨域处理，返回true表示处理完毕；
+			//TODO 避免有的浏览器对于跨域请求不发起预请求，而直接发起真实的跨域请求。
 				return true;
 			}
 		}
-
+		//跨域请求权限验证
 		return handleInternal(serverRequest, serverResponse, config, preFlightRequest);
 	}
 
@@ -117,54 +130,68 @@ public class DefaultCorsProcessor implements CorsProcessor {
 	 */
 	protected boolean handleInternal(ServerHttpRequest request, ServerHttpResponse response,
 			CorsConfiguration config, boolean preFlightRequest) throws IOException {
-
+		//获取发起请求的源地址
 		String requestOrigin = request.getHeaders().getOrigin();
+		//检查发请求的源地址是否在允许跨域配置范围内，检查结果为 null 表示不允许跨域访问。
 		String allowOrigin = checkOrigin(config, requestOrigin);
 		HttpHeaders responseHeaders = response.getHeaders();
-
+		//添加跨域处理的响应头属性：
+		//Origin
+		//Access-Control-Request-Method
+		//Access-Control-Request-Headers
+		//后面跨域请求/预请求权限验证完毕后会添加 Access-Control-Allow-Origin
 		responseHeaders.addAll(HttpHeaders.VARY, Arrays.asList(HttpHeaders.ORIGIN,
 				HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS));
 
+		//没有匹配到跨域的配置项，则认为当前无权访问
 		if (allowOrigin == null) {
 			logger.debug("Rejecting CORS request because '" + requestOrigin + "' origin is not allowed");
 			rejectRequest(response);
 			return false;
 		}
-
+		//获取当前跨域请求的请求方式：OPTION GET POST 等
 		HttpMethod requestMethod = getMethodToUse(request, preFlightRequest);
+		//匹配当前请求允许的请求方式，并返回匹配成功的请求方式
 		List<HttpMethod> allowMethods = checkMethods(config, requestMethod);
+		//没有匹配到允许访问的请求方式，拒绝访问
 		if (allowMethods == null) {
 			logger.debug("Rejecting CORS request because '" + requestMethod + "' request method is not allowed");
 			rejectRequest(response);
 			return false;
 		}
-
+		//获取当前跨域请求的请求头信息
 		List<String> requestHeaders = getHeadersToUse(request, preFlightRequest);
+		//匹配允许的请求头信息，并返回匹配成功的请求头信息
 		List<String> allowHeaders = checkHeaders(config, requestHeaders);
+		//如果当前是预请求且没有匹配到允许的头信息，则拒绝访问
 		if (preFlightRequest && allowHeaders == null) {
 			logger.debug("Rejecting CORS request because '" + requestHeaders + "' request headers are not allowed");
 			rejectRequest(response);
 			return false;
 		}
 
+		//跨域请求或跨域预请求权限验证完毕，设置访问控制允许源地址
 		responseHeaders.setAccessControlAllowOrigin(allowOrigin);
 
+		//设置访问控制允许方法
 		if (preFlightRequest) {
 			responseHeaders.setAccessControlAllowMethods(allowMethods);
 		}
-
+		//设置访问控制允许头
 		if (preFlightRequest && !allowHeaders.isEmpty()) {
 			responseHeaders.setAccessControlAllowHeaders(allowHeaders);
 		}
 
+		//设置访问控制允许方法
 		if (!CollectionUtils.isEmpty(config.getExposedHeaders())) {
 			responseHeaders.setAccessControlExposeHeaders(config.getExposedHeaders());
 		}
 
+		//设置访问控制允许证书
 		if (Boolean.TRUE.equals(config.getAllowCredentials())) {
 			responseHeaders.setAccessControlAllowCredentials(true);
 		}
-
+		//设置访问控制最大大小
 		if (preFlightRequest && config.getMaxAge() != null) {
 			responseHeaders.setAccessControlMaxAge(config.getMaxAge());
 		}

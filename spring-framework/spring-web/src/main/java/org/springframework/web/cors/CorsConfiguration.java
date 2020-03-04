@@ -430,6 +430,7 @@ public class CorsConfiguration {
 	 * @return the origin to use for the response, or {@code null} which
 	 * means the request origin is not allowed
 	 */
+	//匹配配置允许的源地址，并返回匹配成功的源地址
 	@Nullable
 	public String checkOrigin(@Nullable String requestOrigin) {
 		//请求必须要带域，否则不让访问
@@ -467,6 +468,7 @@ public class CorsConfiguration {
 	 * @return the list of HTTP methods to list in the response of a pre-flight
 	 * request, or {@code null} if the supplied {@code requestMethod} is not allowed
 	 */
+	//匹配配置允许的请求方式，并返回匹配成功的请求方式
 	@Nullable
 	public List<HttpMethod> checkHttpMethod(@Nullable HttpMethod requestMethod) {
 		//不带请求方法的请求，不被允许访问
@@ -489,6 +491,7 @@ public class CorsConfiguration {
 	 * @return the list of allowed headers to list in the response of a pre-flight
 	 * request, or {@code null} if none of the supplied request headers is allowed
 	 */
+	//匹配配置允许的请求头信息，并返回匹配成功的头信息
 	@Nullable
 	public List<String> checkHeaders(@Nullable List<String> requestHeaders) {
 		//请求不带请求头，不允许访问

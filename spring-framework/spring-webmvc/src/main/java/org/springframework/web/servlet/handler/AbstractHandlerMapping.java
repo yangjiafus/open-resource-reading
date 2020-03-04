@@ -388,6 +388,32 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 		//2、把是MappedInterceptor拦截器的，判断拦截器的拦截器配置是否与当前请求URL是否匹配，
 		//如果匹配，则把拦截器配置到当前处理器上。
 		HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request);
+
+		/*
+		 * 跨域知识点扩展：
+		 * 1、全局跨域支持配置-方式一 WebMvcConfigurer接口
+		 *		利用抽象类 WebMvcConfigurerAdapter的addCorsMappings方法全局跨域配置，代码如下：
+		 *		@Configuration
+		 *		@EnableWebMvc
+		 *		public class WebConfig extends WebMvcConfigurerAdapter {
+		 *			@Override
+		 *			public void addCorsMappings(CorsRegistry registry) {
+		 *				registry.addMapping("/api/**")
+		 *						.allowedOrigins("http://XX.com")
+		 *						.allowedMethods("PUT", "DELETE")
+		 *						.allowedHeaders("header1", "header2", "header3")
+		 *						.exposedHeaders("header1", "header2")
+		 *						.allowCredentials(false).maxAge(3600);
+		 *			}
+		 *		}
+		 * 注意该配置方法已过时，已被直接实现WebMvcConfigurer接口的方式取代。
+		 *
+		 * 2、全局跨域支持配置-方式二，从HandlerMapping自身配置全局跨域配置
+		 * 通过子类调用AbstractHandlerMapping的setCorsConfigurations方法实现全局跨域配置。
+		 * 3、全局跨域支持配置-过滤器（比如spring的CorsFilter）或拦截器
+		 * 4、局部跨域配置，使用@CrossOrigin
+		 *///TODO 跨域配置来源与拦截器配置来源
+		//<p/>
 		//配置跨域能力
 		if (CorsUtils.isCorsRequest(request)) {
 			//得到当前请求的全局跨域配置，通过UrlBasedCorsConfigurationSource管理
@@ -508,7 +534,32 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			chain = new HandlerExecutionChain(new PreFlightHandler(config), interceptors);
 		}
 		else {
-			//不是预处理请求，则需要对跨域处理执行链配置跨域拦截器
+			//不是跨域预处理请求，则需要对跨域处理器执行链配置跨域拦截器。
+			//跨域拦截器委托DefaultCorsProcessor来处理跨域请求，跨域请求处理仅有两阶段验证：
+			//I.验证当前请求是否属于跨域请求或跨域预请求
+			//1、检查是否是预请求，不是则正常返回；
+			//2、检查响应Response是否当前请求已被跨域处理，是则正常返回；
+			//3、检查请求与服务是否同源，是则正常返回；
+			//4、检查跨域配置是否配置，
+			//没有配置：如果当前请求是跨域预请求，则异常返回，响应码403；如果当前请求不是跨域预请求，则正常返回；
+			//有配置：进行第二阶段跨域配置鉴权验证。
+
+			//II.根据跨域配置（源地址、头信息、请求方式）验证跨域请求。
+			//跨域请求验证步骤（预请求也是一样）：
+			//1、首先为响应头添加如下头信息：
+			//	a、Origin
+			//	b、Access-Control-Request-Method
+			//	c、Access-Control-Request-Headers
+			//2、检查跨域请求的源地址是否在跨域配置允许的源地址内；
+			//3、检查跨域请求的请求头是否在跨域配置允许的请求头内；
+			//4、检查跨域请求的请求方式是否在跨域配置允许的请求方式内；
+			//5、前三项权限验证通过后，向响应response添加如下属性：
+			//	a、Access-Control-Allow-Origin
+			//	b、Access-Control-Allow-Methods
+			//	c、Access-Control-Allow-Headers
+			//	d、Access-Control-Expose-Headers
+			//	e、Access-Control-Allow-Credentials
+			//	f、Access-Control-Max-Age
 			chain.addInterceptor(new CorsInterceptor(config));
 		}
 		return chain;
