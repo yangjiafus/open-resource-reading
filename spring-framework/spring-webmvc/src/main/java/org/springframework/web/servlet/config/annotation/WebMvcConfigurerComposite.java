@@ -99,7 +99,7 @@ class WebMvcConfigurerComposite implements WebMvcConfigurer {
 
 	@Override
 	public void addCorsMappings(CorsRegistry registry) {
-		//为当前跨域注册器，使用每一个WebMvcConfigurer配置，向其注册每一次跨域配置。
+		//向每一个@Configuration@EnableWebMvc public class XX {}配置类回调注册到CorsRegistry
 		for (WebMvcConfigurer delegate : this.delegates) {
 			delegate.addCorsMappings(registry);
 		}

@@ -48,7 +48,25 @@ import java.util.Map;
  * <p>Note: This base class does <i>not</i> support exposure of the
  * {@link #PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE}. Support for this attribute
  * is up to concrete subclasses, typically based on request URL mappings.
- *
+ *	<p/>
+ *	跨域知识点扩展：
+ * 	1、全局跨域支持配置-方式一 WebMvcConfigurer接口
+ * 			利用抽象类 WebMvcConfigurerAdapter的addCorsMappings方法全局跨域配置，代码如下：
+ * 			@Configuration
+ * 			@EnableWebMvc
+ * 			public class WebConfig extends WebMvcConfigurerAdapter {
+ * 				@Override
+ * 				public void addCorsMappings(CorsRegistry registry) {
+ * 					registry.addMapping("/api/**")
+ * 							.allowedOrigins("http://XX.com")
+ * 							.allowedMethods("PUT", "DELETE")
+ * 							.allowedHeaders("header1", "header2", "header3")
+ * 							.exposedHeaders("header1", "header2")
+ * 							.allowCredentials(false).maxAge(3600);
+ * 				}
+ * 			}
+ * 	注意该配置方法已过时，已被直接实现WebMvcConfigurer接口的方式取代。
+ *  <p/>
  * @author Juergen Hoeller
  * @author Rossen Stoyanchev
  * @since 07.04.2003
@@ -68,22 +86,14 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	private UrlPathHelper urlPathHelper = new UrlPathHelper();
 
 	private PathMatcher pathMatcher = new AntPathMatcher();
-	//所有的拦截器链，根据具体应用需要，自定义配置而来。
-	//最终会被 WebMvcConfigurationSupport获取注册到该缓存中。
-	//	@Configuration
-	//	@EnableWebMvc
-	//	public class WebConfig extends WebMvcConfigurerAdapter {
-	//		@Override
-	//		public void addInterceptors(InterceptorRegistry registry) {
-	//			registry.addInterceptor(new LocaleInterceptor());
-	//			registry.addInterceptor(newThemeInterceptor()).addPathPatterns("/**").excludePathPatterns("/admin/**");
-	//			registry.addInterceptor(new SecurityInterceptor()).addPathPatterns("/secure/*");
-	//		}
-	//	}
+	//HandlerMapping自身配置拦截器，通过外部配置而来的拦截器，配置方式有两种方式：
+	//1、通过setInterceptors()方法设置interceptors
+	//2、子类通过重写extendInterceptors()设置
 	private final List<Object> interceptors = new ArrayList<>();
 	//合适的，恰当的拦截器链
 	private final List<HandlerInterceptor> adaptedInterceptors = new ArrayList<>();
-	//请求跨域配置
+	//HandlerMapping自身配置全局跨域配置，通过外部配置而来的全局跨域配置，配置方式有一种方式：
+	//1、通过setCorsConfigurations()方法设置全局配置
 	private final UrlBasedCorsConfigurationSource globalCorsConfigSource = new UrlBasedCorsConfigurationSource();
 
 	private CorsProcessor corsProcessor = new DefaultCorsProcessor();
@@ -388,32 +398,6 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 		//2、把是MappedInterceptor拦截器的，判断拦截器的拦截器配置是否与当前请求URL是否匹配，
 		//如果匹配，则把拦截器配置到当前处理器上。
 		HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request);
-
-		/*
-		 * 跨域知识点扩展：
-		 * 1、全局跨域支持配置-方式一 WebMvcConfigurer接口
-		 *		利用抽象类 WebMvcConfigurerAdapter的addCorsMappings方法全局跨域配置，代码如下：
-		 *		@Configuration
-		 *		@EnableWebMvc
-		 *		public class WebConfig extends WebMvcConfigurerAdapter {
-		 *			@Override
-		 *			public void addCorsMappings(CorsRegistry registry) {
-		 *				registry.addMapping("/api/**")
-		 *						.allowedOrigins("http://XX.com")
-		 *						.allowedMethods("PUT", "DELETE")
-		 *						.allowedHeaders("header1", "header2", "header3")
-		 *						.exposedHeaders("header1", "header2")
-		 *						.allowCredentials(false).maxAge(3600);
-		 *			}
-		 *		}
-		 * 注意该配置方法已过时，已被直接实现WebMvcConfigurer接口的方式取代。
-		 *
-		 * 2、全局跨域支持配置-方式二，从HandlerMapping自身配置全局跨域配置
-		 * 通过子类调用AbstractHandlerMapping的setCorsConfigurations方法实现全局跨域配置。
-		 * 3、全局跨域支持配置-过滤器（比如spring的CorsFilter）或拦截器
-		 * 4、局部跨域配置，使用@CrossOrigin
-		 *///TODO 跨域配置来源与拦截器配置来源
-		//<p/>
 		//配置跨域能力
 		if (CorsUtils.isCorsRequest(request)) {
 			//得到当前请求的全局跨域配置，通过UrlBasedCorsConfigurationSource管理
@@ -424,7 +408,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			CorsConfiguration config = (globalConfig != null ? globalConfig.combine(handlerConfig) : handlerConfig);
 			//根据跨域配置，构建具备跨域处理能力的处理器链：
 			//1、如果当前请求是预处理请求，即是支持跨域，也不给跨域执行链配置跨域拦截器
-			//2、如果不是欲处理请求，则需要配置跨域拦截器
+			//2、如果不是预处理请求，则需要配置跨域拦截器
 			executionChain = getCorsHandlerExecutionChain(request, executionChain, config);
 		}
 		return executionChain;

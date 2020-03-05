@@ -42,6 +42,9 @@ import java.util.List;
 @Configuration
 public class DelegatingWebMvcConfiguration extends WebMvcConfigurationSupport {
 
+	//所有Spring mvc配置类@Configuration都将注册到此处;
+	//然后通过，WebMvcConfigurerComposite持有的配置类，
+	//为每一个需要获取配置的容器初始化配置。
 	private final WebMvcConfigurerComposite configurers = new WebMvcConfigurerComposite();
 
 
@@ -57,6 +60,7 @@ public class DelegatingWebMvcConfiguration extends WebMvcConfigurationSupport {
 	//	default void addInterceptors(InterceptorRegistry registry) {
 	//	}
 	//}
+	//最终注册到WebMvcConfigurerComposite类的delegates缓存中。
 	@Autowired(required = false)
 	public void setConfigurers(List<WebMvcConfigurer> configurers) {
 		if (!CollectionUtils.isEmpty(configurers)) {

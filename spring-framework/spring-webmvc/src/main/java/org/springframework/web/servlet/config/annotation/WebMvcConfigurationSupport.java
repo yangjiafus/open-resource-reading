@@ -216,7 +216,11 @@ public class WebMvcConfigurationSupport implements ApplicationContextAware, Serv
 	@Nullable
 	private List<HttpMessageConverter<?>> messageConverters;
 
-	//使用跨域注册器向 实现WebMvcConfigurer接口的配置类获取跨域配置
+	//通过WebMvcConfigurer接口配置的MVC跨域配置，将被getCorsConfigurations()方法全部
+	//注册到此处，提供这里的对应@Bean使用。
+	//<p/>
+	//如果是通过WebMvcConfigurer接口实现的跨域配置，且是使用这里默认的@Bean配置的HandlerMapping，
+	//那么也可以认为当前的这些配置成为全局跨域配置。其他同理。
 	@Nullable
 	private Map<String, CorsConfiguration> corsConfigurations;
 
