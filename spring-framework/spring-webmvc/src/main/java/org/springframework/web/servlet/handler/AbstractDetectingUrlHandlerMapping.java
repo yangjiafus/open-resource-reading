@@ -23,6 +23,8 @@ import org.springframework.context.ApplicationContextException;
 import org.springframework.util.ObjectUtils;
 
 /**
+ *
+ * 	处理实现Controller接口的处理器
  * Abstract implementation of the {@link org.springframework.web.servlet.HandlerMapping}
  * interface, detecting URL mappings for handler beans through introspection of all
  * defined beans in the application context.
@@ -57,7 +59,7 @@ public abstract class AbstractDetectingUrlHandlerMapping extends AbstractUrlHand
 	public void initApplicationContext() throws ApplicationContextException {
 		//与SimpleURLHandlerMapping一样
 		super.initApplicationContext();
-		//
+		//url与 处理器Bean的名称映射
 		detectHandlers();
 	}
 

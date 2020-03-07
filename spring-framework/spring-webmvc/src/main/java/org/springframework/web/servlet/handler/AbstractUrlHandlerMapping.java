@@ -29,7 +29,7 @@ import java.util.*;
 
 /**
  * Abstract base class for URL-mapped {@link org.springframework.web.servlet.HandlerMapping}
- * implementations. Provides infrastructure for mapping handlers to URLs and configurable
+ * implementations. Provides infrastructure（基础设施） for mapping handlers to URLs and configurable
  * URL lookup. For information on the latter, see "alwaysUseFullPath" property.
  *
  * <p>Supports direct matches, e.g. a registered "/test" matches "/test", and
@@ -41,6 +41,8 @@ import java.util.*;
  * <p>Will search all path patterns to find the most exact match for the
  * current request path. The most exact match is defined as the longest
  * path pattern that matches the current request path.
+ *
+ *	处理实现Controller接口的处理器
  *
  * @author Juergen Hoeller
  * @author Arjen Poutsma

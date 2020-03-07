@@ -46,6 +46,9 @@ import java.util.Properties;
  * {@link #setAlwaysUseFullPath "alwaysUseFullPath"} property. For details on the
  * pattern options, see the {@link org.springframework.util.AntPathMatcher} javadoc.
 
+ 处理实现Controller接口的处理器
+
+
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @see #setMappings
