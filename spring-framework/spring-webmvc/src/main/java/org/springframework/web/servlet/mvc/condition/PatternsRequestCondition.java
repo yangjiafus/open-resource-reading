@@ -16,22 +16,14 @@
 
 package org.springframework.web.servlet.mvc.condition;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-import javax.servlet.http.HttpServletRequest;
-
 import org.springframework.lang.Nullable;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.util.PathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UrlPathHelper;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.*;
 
 /**
  * A logical disjunction (' || ') request condition that matches a request
@@ -229,8 +221,11 @@ public final class PatternsRequestCondition extends AbstractRequestCondition<Pat
 			}
 		}
 		if (matches.size() > 1) {
-			matches.sort(this.pathMatcher.getPatternComparator(lookupPath));
+			matches.sort(
+					//得到AntPatternComparator比较器，与给定的lookupPath比较，从小到大排列。
+					this.pathMatcher.getPatternComparator(lookupPath));
 		}
+		//这样排序后，即可得到与给定路径 lookupPath 的最佳匹配
 		return matches;
 	}
 

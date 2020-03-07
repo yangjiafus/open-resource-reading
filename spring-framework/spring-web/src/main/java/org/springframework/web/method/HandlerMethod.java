@@ -16,12 +16,8 @@
 
 package org.springframework.web.method;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.GenericTypeResolver;
@@ -33,6 +29,9 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.web.bind.annotation.ResponseStatus;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 
 /**
  * Encapsulates information about a handler method consisting of a
@@ -119,16 +118,25 @@ public class HandlerMethod {
 		Assert.hasText(beanName, "Bean name is required");
 		Assert.notNull(beanFactory, "BeanFactory is required");
 		Assert.notNull(method, "Method is required");
+		//处理器的名称
 		this.bean = beanName;
+		//IOC容器（Servlet内部的上下文）
 		this.beanFactory = beanFactory;
+		//当前处理器的class
 		Class<?> beanType = beanFactory.getType(beanName);
 		if (beanType == null) {
 			throw new IllegalStateException("Cannot resolve bean type for bean with name '" + beanName + "'");
 		}
+		//如果当前处理器的类是CGLIB动态生成，则获取其处理器（CGLIB）的源始Class（父类）；
+		//即被动态代理的类，也是处理器真实的类.
 		this.beanType = ClassUtils.getUserClass(beanType);
+		//当前处理器的处理方法
 		this.method = method;
+		//TODO
 		this.bridgedMethod = BridgeMethodResolver.findBridgedMethod(method);
+		//TODO
 		this.parameters = initMethodParameters();
+		//评估响应状态
 		evaluateResponseStatus();
 	}
 

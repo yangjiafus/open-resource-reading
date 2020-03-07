@@ -640,6 +640,7 @@ public abstract class WebUtils {
 		if (!StringUtils.hasText(matrixVariables)) {
 			return result;
 		}
+		//以 matrixVariables=“;a=2000;b=10086,2,3”为例
 		StringTokenizer pairs = new StringTokenizer(matrixVariables, ";");
 		while (pairs.hasMoreTokens()) {
 			String pair = pairs.nextToken();
@@ -647,6 +648,9 @@ public abstract class WebUtils {
 			if (index != -1) {
 				String name = pair.substring(0, index);
 				String rawValue = pair.substring(index + 1);
+				//将rawValue字符串转化为字符串数组，
+				//并将key不变，value变成了一个字符LinkedList链表.
+				//如 b=10086,2,3 -> b = [10086,2,3]
 				for (String value : StringUtils.commaDelimitedListToStringArray(rawValue)) {
 					result.add(name, value);
 				}

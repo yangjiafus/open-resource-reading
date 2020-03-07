@@ -50,22 +50,21 @@ import java.util.Map;
  * is up to concrete subclasses, typically based on request URL mappings.
  *	<p/>
  *	跨域知识点扩展：
- * 	1、全局跨域支持配置-方式一 WebMvcConfigurer接口
- * 			利用抽象类 WebMvcConfigurerAdapter的addCorsMappings方法全局跨域配置，代码如下：
- * 			@Configuration
- * 			@EnableWebMvc
- * 			public class WebConfig extends WebMvcConfigurerAdapter {
- * 				@Override
- * 				public void addCorsMappings(CorsRegistry registry) {
- * 					registry.addMapping("/api/**")
- * 							.allowedOrigins("http://XX.com")
- * 							.allowedMethods("PUT", "DELETE")
- * 							.allowedHeaders("header1", "header2", "header3")
- * 							.exposedHeaders("header1", "header2")
- * 							.allowCredentials(false).maxAge(3600);
- * 				}
- * 			}
- * 	注意该配置方法已过时，已被直接实现WebMvcConfigurer接口的方式取代。
+ *
+ *	全局配置spring mvc跨域有两种方式可以配置：
+ *
+ *	1、使用HandlerMapping自身setter方法进行跨域配置（还有一个扩展接口），其他配置同理。
+ *	这里也可以配合使用@Configuration@EnableMvc以及WebMvcConfigure接口，再通过HandlerMapping
+ *	的setter方法进行全局配置
+ *	2、通过过滤器的方式进行全局跨域配置
+ *	例如CorsFilter的全局跨域配置方案。
+ *
+ *	局部跨域配置
+ *	1、使用@CrossOrigin注解
+ *
+ *
+ *
+ *
  *  <p/>
  * @author Juergen Hoeller
  * @author Rossen Stoyanchev

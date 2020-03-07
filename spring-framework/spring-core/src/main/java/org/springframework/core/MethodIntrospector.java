@@ -16,17 +16,13 @@
 
 package org.springframework.core;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
-
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.*;
 
 /**
  * Defines the algorithm for searching for metadata-associated methods exhaustively
@@ -61,6 +57,7 @@ public abstract class MethodIntrospector {
 			handlerTypes.add(targetType);
 			specificHandlerType = targetType;
 		}
+		//将当前controller的class和接口都添加到 handlerTypes
 		Collections.addAll(handlerTypes, targetType.getInterfaces());
 
 		for (Class<?> currentHandlerType : handlerTypes) {

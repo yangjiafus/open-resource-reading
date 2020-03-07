@@ -16,12 +16,6 @@
 
 package org.springframework.web.servlet.mvc.method.annotation;
 
-import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Set;
-import javax.servlet.http.HttpServletRequest;
-
 import org.springframework.context.EmbeddedValueResolverAware;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.lang.Nullable;
@@ -43,11 +37,17 @@ import org.springframework.web.servlet.mvc.condition.RequestCondition;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMapping;
 
+import javax.servlet.http.HttpServletRequest;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Set;
+
 /**
  * Creates {@link RequestMappingInfo} instances from type and method-level
  * {@link RequestMapping @RequestMapping} annotations in
  * {@link Controller @Controller} classes.
- *
+ *	对@RequestMapping 转化为 RequestMappingInfo
  * @author Arjen Poutsma
  * @author Rossen Stoyanchev
  * @author Sam Brannen
@@ -55,11 +55,11 @@ import org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMappi
  */
 public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMapping
 		implements MatchableHandlerMapping, EmbeddedValueResolverAware {
-
+	//使用后缀路径匹配
 	private boolean useSuffixPatternMatch = true;
-
+	//使用注册的后缀匹配
 	private boolean useRegisteredSuffixPatternMatch = false;
-
+	//使用尾部“/”匹配
 	private boolean useTrailingSlashMatch = true;
 
 	private ContentNegotiationManager contentNegotiationManager = new ContentNegotiationManager();
@@ -174,6 +174,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 */
 	@Override
 	protected boolean isHandler(Class<?> beanType) {
+		//判断一个类class是否是一个处理器，条件是 有@Controller注解或@RequestMapping注解
 		return (AnnotatedElementUtils.hasAnnotation(beanType, Controller.class) ||
 				AnnotatedElementUtils.hasAnnotation(beanType, RequestMapping.class));
 	}
@@ -189,10 +190,13 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	@Override
 	@Nullable
 	protected RequestMappingInfo getMappingForMethod(Method method, Class<?> handlerType) {
+		//为当前方法创建 RequestMappingInfo
 		RequestMappingInfo info = createRequestMappingInfo(method);
 		if (info != null) {
+			//为当前类class创建 RequestMappingInfo
 			RequestMappingInfo typeInfo = createRequestMappingInfo(handlerType);
 			if (typeInfo != null) {
+				//合并两 RequestMappingInfo
 				info = typeInfo.combine(info);
 			}
 		}
@@ -280,6 +284,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		else {
 			String[] resolvedPatterns = new String[patterns.length];
 			for (int i = 0; i < patterns.length; i++) {
+				//将请求路径中的占位符替换掉
 				resolvedPatterns[i] = this.embeddedValueResolver.resolveStringValue(patterns[i]);
 			}
 			return resolvedPatterns;
@@ -288,13 +293,19 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 
 	@Override
 	public RequestMatchResult match(HttpServletRequest request, String pattern) {
+		//根据当前路径和初始化配置，构建RequestMappingInfo条件对象
 		RequestMappingInfo info = RequestMappingInfo.paths(pattern).options(this.config).build();
+		//根据请求匹配成功的条件构建RequestMappingInfo条件对象
 		RequestMappingInfo matchingInfo = info.getMatchingCondition(request);
 		if (matchingInfo == null) {
 			return null;
 		}
+		//得到与请求路径URL向匹配的路径集合，被匹配成功的传入参数pattern 会被添加次集合
+		//LinkedHashSet
 		Set<String> patterns = matchingInfo.getPatternsCondition().getPatterns();
+		//得到请求路径
 		String lookupPath = getUrlPathHelper().getLookupPathForRequest(request);
+		//将当前匹配成功的请求URL与指定匹配路径pattern，且将匹配器一起包装返回
 		return new RequestMatchResult(patterns.iterator().next(), lookupPath, getPathMatcher());
 	}
 
@@ -302,15 +313,20 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	protected CorsConfiguration initCorsConfiguration(Object handler, Method method, RequestMappingInfo mappingInfo) {
 		HandlerMethod handlerMethod = createHandlerMethod(handler, method);
 		Class<?> beanType = handlerMethod.getBeanType();
+		//获取处理器上的 @CrossOrigin注解
 		CrossOrigin typeAnnotation = AnnotatedElementUtils.findMergedAnnotation(beanType, CrossOrigin.class);
+		//获取处理方法上的 @CrossOrigin注解
 		CrossOrigin methodAnnotation = AnnotatedElementUtils.findMergedAnnotation(method, CrossOrigin.class);
 
 		if (typeAnnotation == null && methodAnnotation == null) {
 			return null;
 		}
-
+		//由此可见Controller的@CrossOrigin将会与具体方法的@CrossOrigin合并，
+		//共同实现跨域拦截处理
 		CorsConfiguration config = new CorsConfiguration();
+		//将处理器的@CrossOrigin 更新到配置中
 		updateCorsConfig(config, typeAnnotation);
+		//将处理器的处理方法的@CrossOrigin 更新到配置中
 		updateCorsConfig(config, methodAnnotation);
 
 		if (CollectionUtils.isEmpty(config.getAllowedMethods())) {
@@ -318,9 +334,10 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 				config.addAllowedMethod(allowedMethod.name());
 			}
 		}
+		//对当前跨域配置，还未初始化的使用默认值。
 		return config.applyPermitDefaultValues();
 	}
-
+	//向当前跨域配置中添加@CrossOrigin注解配置的相关属性
 	private void updateCorsConfig(CorsConfiguration config, @Nullable CrossOrigin annotation) {
 		if (annotation == null) {
 			return;

@@ -16,18 +16,6 @@
 
 package org.springframework.web.servlet.mvc.method;
 
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.InvalidMediaTypeException;
@@ -46,10 +34,15 @@ import org.springframework.web.servlet.handler.AbstractHandlerMethodMapping;
 import org.springframework.web.servlet.mvc.condition.NameValueExpression;
 import org.springframework.web.util.WebUtils;
 
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import java.lang.reflect.Method;
+import java.util.*;
+
 /**
  * Abstract base class for classes for which {@link RequestMappingInfo} defines
  * the mapping between a request and a handler method.
- *
+ *  请求与请求处理方法的映射
  * @author Arjen Poutsma
  * @author Rossen Stoyanchev
  * @since 3.1
@@ -60,6 +53,7 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 
 	static {
 		try {
+			//初始化获取请求头信息的方法 getHeader
 			HTTP_OPTIONS_HANDLE_METHOD = HttpOptionsHandler.class.getMethod("handle");
 		}
 		catch (NoSuchMethodException ex) {
@@ -70,12 +64,14 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 
 
 	protected RequestMappingInfoHandlerMapping() {
+		//确定名称的策略
 		setHandlerMethodMappingNamingStrategy(new RequestMappingInfoHandlerMethodMappingNamingStrategy());
 	}
 
 
 	/**
 	 * Get the URL path patterns associated with this {@link RequestMappingInfo}.
+	 * 得到请求URL相关联的路径
 	 */
 	@Override
 	protected Set<String> getMappingPathPatterns(RequestMappingInfo info) {
@@ -122,21 +118,30 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 			decodedUriVariables = Collections.emptyMap();
 		}
 		else {
+			//与lookupPath相匹配的最佳路径；比较两URL大小来排序，与SimpleURLHandlerMapping中涉及到一致
 			bestPattern = patterns.iterator().next();
+			//得到Uri参数变量
+			//	得到方式：
+			//	提取path中匹配到的部分,只是这边还需跟占位符配对为map,
+			//	如pattern(/hotels/{hotel}),path(/hotels/1),解析出"hotel"->"1"
 			uriVariables = getPathMatcher().extractUriTemplateVariables(bestPattern, lookupPath);
+			//解密参数
 			decodedUriVariables = getUrlPathHelper().decodePathVariables(request, uriVariables);
 		}
-
+		//向请求中设置最佳变量
 		request.setAttribute(BEST_MATCHING_PATTERN_ATTRIBUTE, bestPattern);
+		//向请求中设置模板变量以及参数值
 		request.setAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE, decodedUriVariables);
 
 		if (isMatrixVariableContentAvailable()) {
 			Map<String, MultiValueMap<String, String>> matrixVars = extractMatrixVariables(request, uriVariables);
+			//向请求中设置矩阵变量
 			request.setAttribute(HandlerMapping.MATRIX_VARIABLES_ATTRIBUTE, matrixVars);
 		}
 
 		if (!info.getProducesCondition().getProducibleMediaTypes().isEmpty()) {
 			Set<MediaType> mediaTypes = info.getProducesCondition().getProducibleMediaTypes();
+			//向请求中设置媒体类型
 			request.setAttribute(PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE, mediaTypes);
 		}
 	}
@@ -149,6 +154,9 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 			HttpServletRequest request, Map<String, String> uriVariables) {
 
 		Map<String, MultiValueMap<String, String>> result = new LinkedHashMap<>();
+
+		//对刚解析出来的key-value集合的value进行最终确定，真实的value放回当前key-value集合；
+		//对value非合规的部分值，进行解析转化新的map集合，与key建立新的key-value集合返回
 		uriVariables.forEach((uriVarKey, uriVarValue) -> {
 			int equalsIndex = uriVarValue.indexOf('=');
 			if (equalsIndex == -1) {
@@ -159,14 +167,22 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 
 			int semicolonIndex = uriVarValue.indexOf(';');
 			if ((semicolonIndex == -1) || (semicolonIndex == 0) || (equalsIndex < semicolonIndex)) {
+				//如uriVarKey=hotel;uriVarValue=1或uriVarValue=;1 或 uriVarValue=1=2;
+				//对value不做处理，并将value赋值给 matrixVariables
 				matrixVariables = uriVarValue;
 			}
 			else {
+				//如uriVarKey=hotel;uriVarValue=1;a=2000;b=10086
+				//解析出参数值得第一个分号到末尾的内容  “;a=2000;b=10086”
 				matrixVariables = uriVarValue.substring(semicolonIndex + 1);
+				//解析出参数值起始位置到第一个分号间的内容，作为新的值；
+				//如此后结果为 uriVarKey=hotel;uriVarValue=1
 				uriVariables.put(uriVarKey, uriVarValue.substring(0, semicolonIndex));
 			}
-
+			//解析matrixVariables，将其转化为新的 MultiValueMap集合,
+			//如 ;a=2000;b=10086,2,3 -> {a=[2000], b=[10086, 2, 3]}
 			MultiValueMap<String, String> vars = WebUtils.parseMatrixVariables(matrixVariables);
+			//将不合规value转化而来的map集合作为value，旧key为key，放入新集合中
 			result.put(uriVarKey, getUrlPathHelper().decodeMatrixVariables(request, vars));
 		});
 		return result;
@@ -180,10 +196,11 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 	 * @throws HttpMediaTypeNotAcceptableException if there are matches by URL
 	 * but not by consumable/producible media types
 	 */
+	//再次迭代，确定不匹配的原因，并抛出异常
 	@Override
 	protected HandlerMethod handleNoMatch(
 			Set<RequestMappingInfo> infos, String lookupPath, HttpServletRequest request) throws ServletException {
-
+		//Partial 部分
 		PartialMatchHelper helper = new PartialMatchHelper(infos, request);
 		if (helper.isEmpty()) {
 			return null;

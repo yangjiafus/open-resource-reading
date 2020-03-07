@@ -188,11 +188,11 @@ public class AntPathMatcher implements PathMatcher {
 	 */
 	protected boolean doMatch(String pattern, String path, boolean fullMatch,
 			@Nullable Map<String, String> uriTemplateVariables) {
-
+		//如果两路径不是以相同的分隔符开头，则两路径不匹配
 		if (path.startsWith(this.pathSeparator) != pattern.startsWith(this.pathSeparator)) {
 			return false;
 		}
-
+		//将pattern使用给定的分隔符（"/"）分割开来
 		String[] pattDirs = tokenizePattern(pattern);
 		if (fullMatch && this.caseSensitive && !isPotentialMatch(path, pattDirs)) {
 			return false;
@@ -349,9 +349,10 @@ public class AntPathMatcher implements PathMatcher {
 		}
 		return skipped;
 	}
-
+	//计算跳过多次后分隔符的总累计长度
 	private int skipSeparator(String path, int pos, String separator) {
 		int skipped = 0;
+		//判断字符串是否从指定位置以指定字符开始
 		while (path.startsWith(separator, pos + skipped)) {
 			skipped += separator.length();
 		}
@@ -381,15 +382,18 @@ public class AntPathMatcher implements PathMatcher {
 			tokenized = this.tokenizedPatternCache.get(pattern);
 		}
 		if (tokenized == null) {
+			//将pattern使用给定的分隔符（"/"）分割开来
 			tokenized = tokenizePath(pattern);
 			if (cachePatterns == null && this.tokenizedPatternCache.size() >= CACHE_TURNOFF_THRESHOLD) {
 				// Try to adapt to the runtime situation that we're encountering:
 				// There are obviously too many different patterns coming in here...
 				// So let's turn off the cache since the patterns are unlikely to be reoccurring.
+				//停用缓存
 				deactivatePatternCache();
 				return tokenized;
 			}
 			if (cachePatterns == null || cachePatterns.booleanValue()) {
+				//缓存当前路径分隔开来的数组
 				this.tokenizedPatternCache.put(pattern, tokenized);
 			}
 		}
@@ -401,6 +405,7 @@ public class AntPathMatcher implements PathMatcher {
 	 * @param path the path to tokenize
 	 * @return the tokenized path parts
 	 */
+	//把给定的字符串用给定的分隔符分割开来
 	protected String[] tokenizePath(String path) {
 		return StringUtils.tokenizeToStringArray(path, this.pathSeparator, this.trimTokens, true);
 	}
