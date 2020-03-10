@@ -16,11 +16,6 @@
 
 package org.springframework.web.method.annotation;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.WebDataBinder;
@@ -30,6 +25,11 @@ import org.springframework.web.bind.support.WebBindingInitializer;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.method.support.InvocableHandlerMethod;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Adds initialization to a WebDataBinder via {@code @InitBinder} methods.
@@ -64,6 +64,7 @@ public class InitBinderDataBinderFactory extends DefaultDataBinderFactory {
 	public void initBinder(WebDataBinder binder, NativeWebRequest request) throws Exception {
 		for (InvocableHandlerMethod binderMethod : this.binderMethods) {
 			if (isBinderMethodApplicable(binderMethod, binder)) {
+				//调用@InitBinder标记方法，初始化数据绑定器
 				Object returnValue = binderMethod.invokeForRequest(request, null, binder);
 				if (returnValue != null) {
 					throw new IllegalStateException(

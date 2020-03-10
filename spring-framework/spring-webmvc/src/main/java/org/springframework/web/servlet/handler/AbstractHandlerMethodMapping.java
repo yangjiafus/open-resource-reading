@@ -379,7 +379,8 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 		}
 		if (matches.isEmpty()) {
 			// No choice but to go through all mappings...
-			//遍历整个RequestMappingInfo与处理器的集合，查找合适的处理方法；
+			//遍历整个RequestMappingInfo与处理器的集合，查找与Request相匹配的RequestMapping，
+			//然后再通过RequestMapping查找合适的处理方法；
 			//前面一个：先通过请求路径去找匹配的RequestMappingInfo，然后再通过RequestMappingInfo
 			//去找对应的处理方法。
 			addMatchingMappings(this.mappingRegistry.getMappings().keySet(), matches, request);

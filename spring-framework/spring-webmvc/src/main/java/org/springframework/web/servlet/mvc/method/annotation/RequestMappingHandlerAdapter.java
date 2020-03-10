@@ -16,18 +16,6 @@
 
 package org.springframework.web.servlet.mvc.method.annotation;
 
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.InitializingBean;
@@ -53,41 +41,15 @@ import org.springframework.web.accept.ContentNegotiationManager;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.support.DefaultDataBinderFactory;
-import org.springframework.web.bind.support.DefaultSessionAttributeStore;
-import org.springframework.web.bind.support.SessionAttributeStore;
-import org.springframework.web.bind.support.WebBindingInitializer;
-import org.springframework.web.bind.support.WebDataBinderFactory;
+import org.springframework.web.bind.support.*;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.context.request.async.AsyncWebRequest;
-import org.springframework.web.context.request.async.CallableProcessingInterceptor;
-import org.springframework.web.context.request.async.DeferredResultProcessingInterceptor;
-import org.springframework.web.context.request.async.WebAsyncManager;
-import org.springframework.web.context.request.async.WebAsyncTask;
-import org.springframework.web.context.request.async.WebAsyncUtils;
+import org.springframework.web.context.request.async.*;
 import org.springframework.web.method.ControllerAdviceBean;
 import org.springframework.web.method.HandlerMethod;
-import org.springframework.web.method.annotation.ErrorsMethodArgumentResolver;
-import org.springframework.web.method.annotation.ExpressionValueMethodArgumentResolver;
-import org.springframework.web.method.annotation.InitBinderDataBinderFactory;
-import org.springframework.web.method.annotation.MapMethodProcessor;
-import org.springframework.web.method.annotation.ModelAttributeMethodProcessor;
-import org.springframework.web.method.annotation.ModelFactory;
-import org.springframework.web.method.annotation.ModelMethodProcessor;
-import org.springframework.web.method.annotation.RequestHeaderMapMethodArgumentResolver;
-import org.springframework.web.method.annotation.RequestHeaderMethodArgumentResolver;
-import org.springframework.web.method.annotation.RequestParamMapMethodArgumentResolver;
-import org.springframework.web.method.annotation.RequestParamMethodArgumentResolver;
-import org.springframework.web.method.annotation.SessionAttributesHandler;
-import org.springframework.web.method.annotation.SessionStatusMethodArgumentResolver;
-import org.springframework.web.method.support.HandlerMethodArgumentResolver;
-import org.springframework.web.method.support.HandlerMethodArgumentResolverComposite;
-import org.springframework.web.method.support.HandlerMethodReturnValueHandler;
-import org.springframework.web.method.support.HandlerMethodReturnValueHandlerComposite;
-import org.springframework.web.method.support.InvocableHandlerMethod;
-import org.springframework.web.method.support.ModelAndViewContainer;
+import org.springframework.web.method.annotation.*;
+import org.springframework.web.method.support.*;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.mvc.annotation.ModelAndViewResolver;
@@ -95,6 +57,14 @@ import org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.support.RequestContextUtils;
 import org.springframework.web.util.WebUtils;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import java.lang.reflect.Method;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Extension of {@link AbstractHandlerMethodAdapter} that supports
@@ -834,19 +804,31 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	@Nullable
 	protected ModelAndView invokeHandlerMethod(HttpServletRequest request,
 			HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
-
+		//包装请求和响应为webRequest
 		ServletWebRequest webRequest = new ServletWebRequest(request, response);
 		try {
+			//1、为当前处理器所在类和@ControllerAdvice修饰类的所有@InitBinder标记的方法
+			//包装为可调度处理方法；
+			//2、为每一个可调度处理方法配置参数发现器、参数绑定解析器和默认绑定工厂且配
+			//置初始化设置器；
+			//3、根据@InitBinder方法而来的可调度处理方法构造参数绑定器工厂
+			//ServletRequestDataBinderFactory，
 			WebDataBinderFactory binderFactory = getDataBinderFactory(handlerMethod);
+			//1、根据当前处理器所在类和@ControllerAdvice修饰类的所有的@RequestMapping&@ModuleAttribute
+			//标记的方方法转化为可调度方法，其他与@InitBinder类似处理
+			//2、根据转化而来的可调度方法创建ModelFactory
 			ModelFactory modelFactory = getModelFactory(handlerMethod, binderFactory);
-
+			//将处理方法转化为可调度的Servlet处理方法 ServletInvocableHandlerMethod
 			ServletInvocableHandlerMethod invocableMethod = createInvocableHandlerMethod(handlerMethod);
 			if (this.argumentResolvers != null) {
+				//对当前处理方法转化的ServletInvocableHandlerMethod 设置参数解析器（@InitBinder标记的方法设置的不一样）
 				invocableMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);
 			}
 			if (this.returnValueHandlers != null) {
+				//设置参数返回值处理器
 				invocableMethod.setHandlerMethodReturnValueHandlers(this.returnValueHandlers);
 			}
+			//为当前处理方法设置数据绑定工厂
 			invocableMethod.setDataBinderFactory(binderFactory);
 			invocableMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
 
@@ -897,19 +879,24 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	}
 
 	private ModelFactory getModelFactory(HandlerMethod handlerMethod, WebDataBinderFactory binderFactory) {
+		//获取Session属性处理器
 		SessionAttributesHandler sessionAttrHandler = getSessionAttributesHandler(handlerMethod);
 		Class<?> handlerType = handlerMethod.getBeanType();
+		//从缓存中获取处理器类中@RequestMapping、@ModelAttribute修饰的方法
 		Set<Method> methods = this.modelAttributeCache.get(handlerType);
 		if (methods == null) {
+			//获取处理器类被@RequestMapping、@ModelAttribute修饰的方法
 			methods = MethodIntrospector.selectMethods(handlerType, MODEL_ATTRIBUTE_METHODS);
 			this.modelAttributeCache.put(handlerType, methods);
 		}
 		List<InvocableHandlerMethod> attrMethods = new ArrayList<>();
 		// Global methods first
+		//从缓存中获取增强处理器中@RequestMapping、@ModelAttribute修饰的方法
 		this.modelAttributeAdviceCache.forEach((clazz, methodSet) -> {
 			if (clazz.isApplicableToBeanType(handlerType)) {
 				Object bean = clazz.resolveBean();
 				for (Method method : methodSet) {
+					//将@RequestMapping、@ModelAttribute修饰的方法包装的方法转化成可调度的方法
 					attrMethods.add(createModelAttributeMethod(binderFactory, bean, method));
 				}
 			}
@@ -935,32 +922,47 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		Class<?> handlerType = handlerMethod.getBeanType();
 		Set<Method> methods = this.initBinderCache.get(handlerType);
 		if (methods == null) {
+			//得到当前处理器类被@InitBinder注解修饰的方法
 			methods = MethodIntrospector.selectMethods(handlerType, INIT_BINDER_METHODS);
+			//当前处理器类与被@InitBinder注解修饰的方法放入缓存，即当前被@InitBinder修饰的方法，
+			//全部放入缓存
 			this.initBinderCache.put(handlerType, methods);
 		}
 		List<InvocableHandlerMethod> initBinderMethods = new ArrayList<>();
 		// Global methods first
+		//为@ControllerAdvice控制器增强类内部的@InitBinder标记方法，包装为可调度处理方法，且
+		//为每一个可调度处理方法配置参数发现器、参数绑定解析器和默认绑定工厂且配置初始化设置器。
 		this.initBinderAdviceCache.forEach((clazz, methodSet) -> {
 			if (clazz.isApplicableToBeanType(handlerType)) {
+				//得到当前增强控制器@ControllerAdvice修饰类的Bean
 				Object bean = clazz.resolveBean();
 				for (Method method : methodSet) {
+					//将当前Bean内的所有方法转化为可调度的处理方法，并配置参数
+					//发现器、参数绑定解析器和数据绑定工厂且工厂配置有web初始化参数设置器
 					initBinderMethods.add(createInitBinderMethod(bean, method));
 				}
 			}
 		});
+
+		//为每一个可调度处理方法配置参数发现器、参数绑定解析器和默认绑定工厂且配置初始化设置器
 		for (Method method : methods) {
 			Object bean = handlerMethod.getBean();
 			initBinderMethods.add(createInitBinderMethod(bean, method));
 		}
+		//根据所有的可调度处理方法，创建ServletRequestDataBinderFactory绑定器工厂
 		return createDataBinderFactory(initBinderMethods);
 	}
 
 	private InvocableHandlerMethod createInitBinderMethod(Object bean, Method method) {
+		//根据Bean和其方法创建可调度的处理方法
 		InvocableHandlerMethod binderMethod = new InvocableHandlerMethod(bean, method);
 		if (this.initBinderArgumentResolvers != null) {
+			//为当前可调度的处理方法配置参数解析器
 			binderMethod.setHandlerMethodArgumentResolvers(this.initBinderArgumentResolvers);
 		}
+		//为当前可调度的处理方法配置数据绑定器工厂，工厂持有web初始化参数设置器
 		binderMethod.setDataBinderFactory(new DefaultDataBinderFactory(this.webBindingInitializer));
+		//为当前可调度处理方法配置参数发现器
 		binderMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
 		return binderMethod;
 	}

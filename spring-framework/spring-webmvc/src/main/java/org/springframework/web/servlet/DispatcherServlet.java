@@ -984,6 +984,7 @@ public class DispatcherServlet extends FrameworkServlet {
 				multipartRequestParsed = (processedRequest != request);
 
 				// Determine handler for the current request.
+				//如果是RequestMappingHandlerMapping则返回的handler是处理方法HandlerMethod
 				mappedHandler = getHandler(processedRequest);
 				if (mappedHandler == null) {
 					noHandlerFound(processedRequest, response);
@@ -991,6 +992,9 @@ public class DispatcherServlet extends FrameworkServlet {
 				}
 
 				// Determine handler adapter for the current request.
+				// 遍历所有注册到DispatcherServlet的Adapter，判断handler的类型与Adapter支持的类型
+				//是否匹配，从而得到与Handler/handlerMethod相匹配的Adapter。
+				//后面委托Adapter执行实现Controller接口的HandlerRequest方法或直接执行HandlerMethod。
 				HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
 
 				// Process last-modified header, if supported by the handler.
@@ -1011,6 +1015,7 @@ public class DispatcherServlet extends FrameworkServlet {
 				}
 
 				// Actually invoke the handler.
+				//执行handlerRequest方法或handlerMethod方法
 				mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
 
 				if (asyncManager.isConcurrentHandlingStarted()) {
