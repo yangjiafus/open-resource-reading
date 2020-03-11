@@ -78,27 +78,35 @@ public class ModelAndViewMethodReturnValueHandler implements HandlerMethodReturn
 	public void handleReturnValue(@Nullable Object returnValue, MethodParameter returnType,
 			ModelAndViewContainer mavContainer, NativeWebRequest webRequest) throws Exception {
 
+		//如果请求方法返回的ModelAndView类型对象为空，则设置当前请求已处理完毕
 		if (returnValue == null) {
 			mavContainer.setRequestHandled(true);
 			return;
 		}
 
 		ModelAndView mav = (ModelAndView) returnValue;
+		//判断ModelAndView对应的view是不是一个字符串
 		if (mav.isReference()) {
+			//得到当前的view视图字符串
 			String viewName = mav.getViewName();
+			//向ModelAndViewContainer容器设置当前的视图
 			mavContainer.setViewName(viewName);
+			//如果当前的视图是重定向的视图，则向ModelAndViewContainer容器标记为重定向
 			if (viewName != null && isRedirectViewName(viewName)) {
 				mavContainer.setRedirectModelScenario(true);
 			}
 		}
 		else {
+			//如果视图不是简单的string，则直接获取view而非viewName
 			View view = mav.getView();
 			mavContainer.setView(view);
 			if (view instanceof SmartView && ((SmartView) view).isRedirectView()) {
 				mavContainer.setRedirectModelScenario(true);
 			}
 		}
+		//设置当前请求处理状态
 		mavContainer.setStatus(mav.getStatus());
+		//添加当前Model所有属性到ModelAndViewContainer容器
 		mavContainer.addAllAttributes(mav.getModel());
 	}
 

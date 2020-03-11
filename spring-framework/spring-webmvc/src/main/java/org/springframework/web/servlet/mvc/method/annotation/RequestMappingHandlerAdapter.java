@@ -830,10 +830,13 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 			}
 			//为当前处理方法设置数据绑定工厂
 			invocableMethod.setDataBinderFactory(binderFactory);
+			//为当前处理方法设置参数发现器
 			invocableMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
 
 			ModelAndViewContainer mavContainer = new ModelAndViewContainer();
+			//这些属性是在doService方法中初始化的
 			mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));
+			//在调用处理方法前，执行被@ModelAndAttribute修饰的方法（独有修饰在方法上和与参数上，无论参数是否有其它注解）
 			modelFactory.initModel(webRequest, mavContainer, invocableMethod);
 			mavContainer.setIgnoreDefaultModelOnRedirect(this.ignoreDefaultModelOnRedirect);
 
@@ -855,12 +858,17 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 				}
 				invocableMethod = invocableMethod.wrapConcurrentResult(result);
 			}
-
+			//调用处理方法执行自定义的业务逻辑
 			invocableMethod.invokeAndHandle(webRequest, mavContainer);
 			if (asyncManager.isConcurrentHandlingStarted()) {
 				return null;
 			}
-
+			//根据支持的返回值处理器的处理结果，得到ModelAndView。
+			//返回值处理方式有多种：
+			//1、处理方法被@ResponseBody修饰的，直接将返回值写入response，并设置当前请求已处理完毕；
+			//2、处理方法返回是ModelAndView的，按照正常逻辑处理；
+			//3、处理方法返回值是String的，需要将String转化为ModelAndView；
+			//等等
 			return getModelAndView(mavContainer, modelFactory, webRequest);
 		}
 		finally {
@@ -885,13 +893,13 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		//从缓存中获取处理器类中@RequestMapping、@ModelAttribute修饰的方法
 		Set<Method> methods = this.modelAttributeCache.get(handlerType);
 		if (methods == null) {
-			//获取处理器类被@RequestMapping、@ModelAttribute修饰的方法
+			//获取处理器类被@ModelAttribute修饰且没有@RequestMapping的方法
 			methods = MethodIntrospector.selectMethods(handlerType, MODEL_ATTRIBUTE_METHODS);
 			this.modelAttributeCache.put(handlerType, methods);
 		}
 		List<InvocableHandlerMethod> attrMethods = new ArrayList<>();
 		// Global methods first
-		//从缓存中获取增强处理器中@RequestMapping、@ModelAttribute修饰的方法
+		//从缓存中获取增强处理器中被@ModelAttribute修饰且没有@RequestMapping的方法
 		this.modelAttributeAdviceCache.forEach((clazz, methodSet) -> {
 			if (clazz.isApplicableToBeanType(handlerType)) {
 				Object bean = clazz.resolveBean();
@@ -984,17 +992,22 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	@Nullable
 	private ModelAndView getModelAndView(ModelAndViewContainer mavContainer,
 			ModelFactory modelFactory, NativeWebRequest webRequest) throws Exception {
-
+		//更新当前请求对应得model
 		modelFactory.updateModel(webRequest, mavContainer);
+		//如果返回值处理器已经处理完请求，则直接返回。如@ResponseBody注解修饰的方法
 		if (mavContainer.isRequestHandled()) {
 			return null;
 		}
+		//以下用特定的视图处理器为例来分析：ModelAndViewMethodReturnValueHandler和ModelAndViewResolverMethodReturnValueHandler
+		//获取到当前未处理完得model
 		ModelMap model = mavContainer.getModel();
 		ModelAndView mav = new ModelAndView(mavContainer.getViewName(), model, mavContainer.getStatus());
 		if (!mavContainer.isViewReference()) {
+			//设置非String的视图
 			mav.setView((View) mavContainer.getView());
 		}
 		if (model instanceof RedirectAttributes) {
+			//
 			Map<String, ?> flashAttributes = ((RedirectAttributes) model).getFlashAttributes();
 			HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
 			if (request != null) {

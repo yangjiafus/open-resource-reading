@@ -102,20 +102,31 @@ public class ServletInvocableHandlerMethod extends InvocableHandlerMethod {
 		Object returnValue = invokeForRequest(webRequest, mavContainer, providedArgs);
 		setResponseStatus(webRequest);
 
+		//返回值为空
 		if (returnValue == null) {
-			if (isRequestNotModified(webRequest) || getResponseStatus() != null || mavContainer.isRequestHandled()) {
+			if (
+					//请求没有被修改
+					isRequestNotModified(webRequest) ||
+							//有对应的执行结果影响状态
+							getResponseStatus() != null ||
+							//显示标记为已经处理完毕
+							mavContainer.isRequestHandled()) {
+				//设置当前请求已经处理完毕
 				mavContainer.setRequestHandled(true);
 				return;
 			}
 		}
+		//获取响应异常原因
 		else if (StringUtils.hasText(getResponseStatusReason())) {
+			//如果有异常原因则设置为当前请求已处理完毕
 			mavContainer.setRequestHandled(true);
 			return;
 		}
-
+		//设置当前请求还未处理完毕
 		mavContainer.setRequestHandled(false);
 		Assert.state(this.returnValueHandlers != null, "No return value handlers");
 		try {
+			//返回值处理器使用默认处理器对结果进一步处理
 			this.returnValueHandlers.handleReturnValue(
 					returnValue, getReturnValueType(returnValue), mavContainer, webRequest);
 		}

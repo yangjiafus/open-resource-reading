@@ -105,9 +105,11 @@ public final class ModelFactory {
 	 */
 	public void initModel(NativeWebRequest request, ModelAndViewContainer container, HandlerMethod handlerMethod)
 			throws Exception {
-
+		//从session中取出已知的属性
 		Map<String, ?> sessionAttributes = this.sessionAttributesHandler.retrieveAttributes(request);
+		//向modelAndViewContainer中添加已知的session属性
 		container.mergeAttributes(sessionAttributes);
+		//调用仅有@ModelAttribute标记的方法（注意，这里仅是执行独有@ModelAttribute注解的方法）
 		invokeModelAttributeMethods(request, container);
 
 		for (String name : findSessionAttributeArguments(handlerMethod)) {
@@ -127,25 +129,31 @@ public final class ModelFactory {
 	 */
 	private void invokeModelAttributeMethods(NativeWebRequest request, ModelAndViewContainer container)
 			throws Exception {
-
+		//遍历@ModelAttribute修饰且没@RequestMapping的方法并执行
 		while (!this.modelMethods.isEmpty()) {
+			//得到ModelAndViewContainer容器中已注册的第一个可调度的方法，
+			//并从注册表中删除，以每次取第一个处理方法；
 			InvocableHandlerMethod modelMethod = getNextModelMethod(container).getHandlerMethod();
 			ModelAttribute ann = modelMethod.getMethodAnnotation(ModelAttribute.class);
 			Assert.state(ann != null, "No ModelAttribute annotation");
+			//判断容器中的ModelMap是否已经存在@ModelAttribute.value指定的属性名称
 			if (container.containsAttribute(ann.name())) {
+				//如果当前ModelAttribute指定的属性不需要绑定，则注册到不需要绑定缓存中
 				if (!ann.binding()) {
 					container.setBindingDisabled(ann.name());
 				}
 				continue;
 			}
-
+			//调用ModelAttribute修饰，且没有@RequestMapping的方法。
 			Object returnValue = modelMethod.invokeForRequest(request, container);
 			if (!modelMethod.isVoid()){
+				//得到然会参数在Model中的属性名称
 				String returnValueName = getNameForReturnValue(returnValue, modelMethod.getReturnType());
 				if (!ann.binding()) {
 					container.setBindingDisabled(returnValueName);
 				}
 				if (!container.containsAttribute(returnValueName)) {
+					//向容器注册当前属性名称和值
 					container.addAttribute(returnValueName, returnValue);
 				}
 			}
@@ -178,9 +186,13 @@ public final class ModelFactory {
 		List<String> result = new ArrayList<>();
 		for (MethodParameter parameter : handlerMethod.getMethodParameters()) {
 			if (parameter.hasParameterAnnotation(ModelAttribute.class)) {
+				//参数名称
 				String name = getNameForParameter(parameter);
+				//参数类型
 				Class<?> paramType = parameter.getParameterType();
+				//判断当前参数名称和参数类型，是否与@SessionAttribute（修饰在类上）指定的名称和类型一致
 				if (this.sessionAttributesHandler.isHandlerSessionAttribute(name, paramType)) {
+					//一致则添加到集合中
 					result.add(name);
 				}
 			}
@@ -197,12 +209,16 @@ public final class ModelFactory {
 	 */
 	public void updateModel(NativeWebRequest request, ModelAndViewContainer container) throws Exception {
 		ModelMap defaultModel = container.getDefaultModel();
+		//如果当前session完成了清除当前的session缓存
 		if (container.getSessionStatus().isComplete()){
 			this.sessionAttributesHandler.cleanupAttributes(request);
 		}
 		else {
+			//当前没有完成会话，添加当前请求与modelMap到缓存
 			this.sessionAttributesHandler.storeAttributes(request, defaultModel);
 		}
+		//如果当前请求未被完全处理，且当前请求对应的ModelMap是默认的，
+		//则绑定参数
 		if (!container.isRequestHandled() && container.getModel() == defaultModel) {
 			updateBindingResult(request, defaultModel);
 		}
@@ -290,6 +306,7 @@ public final class ModelFactory {
 
 		public ModelMethod(InvocableHandlerMethod handlerMethod) {
 			this.handlerMethod = handlerMethod;
+			//根据@ModelAttribute标记的方法的参数，有@ModelAttribute
 			for (MethodParameter parameter : handlerMethod.getMethodParameters()) {
 				if (parameter.hasParameterAnnotation(ModelAttribute.class)) {
 					this.dependencies.add(getNameForParameter(parameter));

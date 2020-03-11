@@ -1015,14 +1015,16 @@ public class DispatcherServlet extends FrameworkServlet {
 				}
 
 				// Actually invoke the handler.
-				//执行handlerRequest方法或handlerMethod方法
+				//执行handlerRequest方法或handlerMethod方法，得到ModelAndView，或为空。
+				//注意，这里在执行处理方法前，会先对@InitBinder和@ModelAttribute注解进行处理
 				mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
 
 				if (asyncManager.isConcurrentHandlingStarted()) {
 					return;
 				}
-
+				//如果当前ModelAndView不为空且没有对应得视图，则使用默认的视图
 				applyDefaultViewName(processedRequest, mv);
+				//处理器执行链内部拦截器的后置处理
 				mappedHandler.applyPostHandle(processedRequest, response, mv);
 			}
 			catch (Exception ex) {
@@ -1033,6 +1035,7 @@ public class DispatcherServlet extends FrameworkServlet {
 				// making them available for @ExceptionHandler methods and other scenarios.
 				dispatchException = new NestedServletException("Handler dispatch failed", err);
 			}
+			//处理分发结果
 			processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
 		}
 		catch (Exception ex) {
@@ -1079,7 +1082,7 @@ public class DispatcherServlet extends FrameworkServlet {
 			@Nullable Exception exception) throws Exception {
 
 		boolean errorView = false;
-
+		//如果有异常，将异常转化为异常视图
 		if (exception != null) {
 			if (exception instanceof ModelAndViewDefiningException) {
 				logger.debug("ModelAndViewDefiningException encountered", exception);
@@ -1092,8 +1095,10 @@ public class DispatcherServlet extends FrameworkServlet {
 			}
 		}
 
+		//渲染视图
 		// Did the handler return a view to render?
 		if (mv != null && !mv.wasCleared()) {
+			//筛选出最佳视图进行渲染
 			render(mv, request, response);
 			if (errorView) {
 				WebUtils.clearErrorRequestAttributes(request);
@@ -1112,6 +1117,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		}
 
 		if (mappedHandler != null) {
+			//处理器执行链，触发处理请求完成事件
 			mappedHandler.triggerAfterCompletion(request, response, null);
 		}
 	}
@@ -1324,9 +1330,11 @@ public class DispatcherServlet extends FrameworkServlet {
 		response.setLocale(locale);
 
 		View view;
+		//得到即将渲染的视图名称
 		String viewName = mv.getViewName();
 		if (viewName != null) {
 			// We need to resolve the view name.
+			//根据具体策略筛选出最佳视图
 			view = resolveViewName(viewName, mv.getModelInternal(), locale, request);
 			if (view == null) {
 				throw new ServletException("Could not resolve view with name '" + mv.getViewName() +
